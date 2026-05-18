@@ -1,0 +1,10 @@
+{
+  "identifier": "default",
+  "description": "Default capability for AgentHub",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default"
+  ]
+}

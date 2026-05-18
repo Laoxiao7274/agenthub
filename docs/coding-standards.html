@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通用编码规范</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --primary: #6366f1; --primary-light: #818cf8; --primary-dark: #4f46e5;
+    --accent: #06b6d4; --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+    --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0; --gray-300: #cbd5e1;
+    --gray-400: #94a3b8; --gray-500: #64748b; --gray-600: #475569; --gray-700: #334155;
+    --gray-800: #1e293b; --gray-900: #0f172a;
+  }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--gray-50); color: var(--gray-800); line-height: 1.7; }
+  .hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 100%); color: white; padding: 60px 40px; text-align: center; }
+  .hero h1 { font-size: 48px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+  .hero h1 span { background: linear-gradient(90deg, #818cf8, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { font-size: 18px; opacity: 0.7; font-weight: 300; }
+  .hero-meta { display: flex; justify-content: center; gap: 32px; margin-top: 24px; font-size: 13px; opacity: 0.5; }
+  .toc { background: white; border-bottom: 1px solid var(--gray-200); padding: 12px 40px; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .toc-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+  .toc a { padding: 6px 14px; border-radius: 8px; text-decoration: none; color: var(--gray-600); font-size: 13px; font-weight: 500; transition: all 0.2s; }
+  .toc a:hover { background: var(--primary); color: white; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
+  .section { padding: 56px 0; }
+  .section-header { margin-bottom: 32px; }
+  .section-number { display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: white; width: 28px; height: 28px; border-radius: 8px; font-size: 13px; font-weight: 700; margin-right: 10px; vertical-align: middle; }
+  .section-title { display: inline; font-size: 26px; font-weight: 700; color: var(--gray-900); vertical-align: middle; }
+  .section-desc { margin-top: 8px; color: var(--gray-500); font-size: 15px; }
+  .card { background: white; border-radius: 14px; padding: 28px; border: 1px solid var(--gray-200); margin-bottom: 20px; }
+  .card:hover { box-shadow: 0 4px 20px rgba(99,102,241,0.08); }
+  .card h3 { font-size: 17px; font-weight: 600; margin-bottom: 12px; color: var(--gray-900); }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; }
+  .badge-must { background: #fef2f2; color: var(--danger); }
+  .badge-should { background: #fffbeb; color: var(--warning); }
+  .badge-may { background: #ecfdf5; color: var(--success); }
+  .badge-ts { background: #eef2ff; color: var(--primary); }
+  .badge-go { background: #ecfdf5; color: #059669; }
+  .badge-rust { background: #fef2f2; color: #b91c1c; }
+  .badge-py { background: #fffbeb; color: #d97706; }
+  .badge-all { background: var(--gray-100); color: var(--gray-600); }
+  .rule { padding: 14px 0; border-bottom: 1px solid var(--gray-100); display: flex; gap: 12px; align-items: flex-start; }
+  .rule:last-child { border-bottom: none; }
+  .rule-id { flex-shrink: 0; width: 48px; height: 24px; border-radius: 6px; background: var(--gray-100); text-align: center; line-height: 24px; font-size: 11px; font-weight: 600; color: var(--gray-500); font-family: 'JetBrains Mono', monospace; }
+  .rule-body { flex: 1; }
+  .rule-body p { font-size: 14px; color: var(--gray-600); }
+  .rule-body code { background: var(--gray-100); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--primary-dark); }
+  .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--gray-200); margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; background: white; }
+  th { background: var(--gray-50); padding: 10px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--gray-700); border-bottom: 2px solid var(--gray-200); text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 16px; font-size: 13px; color: var(--gray-600); border-bottom: 1px solid var(--gray-100); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-50); }
+  pre { background: #1e1b4b; color: #c4b5fd; border-radius: 10px; padding: 20px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.8; margin: 16px 0; }
+  .code-label { background: #312e81; color: #c4b5fd; display: inline-block; padding: 4px 12px; border-radius: 8px 8px 0 0; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; margin-bottom: -1px; }
+  .code-label + pre { border-radius: 0 10px 10px 10px; }
+  .k { color: #818cf8; } .s { color: #34d399; } .c { color: #64748b; } .n { color: #f9a8d4; } .fn { color: #93c5fd; }
+  .do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .do, .dont { border-radius: 10px; padding: 16px; font-size: 13px; }
+  .do { background: #ecfdf5; border: 1px solid #a7f3d0; } .do::before { content: '✅ DO'; font-weight: 700; color: #059669; display: block; margin-bottom: 8px; font-size: 12px; }
+  .dont { background: #fef2f2; border: 1px solid #fecaca; } .dont::before { content: '❌ DON\'T'; font-weight: 700; color: #dc2626; display: block; margin-bottom: 8px; font-size: 12px; }
+  .do code, .dont code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; }
+  .divider { border: none; border-top: 1px solid var(--gray-200); margin: 0; }
+  .footer { background: var(--gray-900); color: var(--gray-500); text-align: center; padding: 32px; font-size: 13px; }
+  .tag-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .summary-box { background: linear-gradient(135deg, #eef2ff, #ecfdf5); border-radius: 12px; padding: 24px; margin: 20px 0; border: 1px solid #c7d2fe; }
+  .summary-box h4 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--primary-dark); }
+  .summary-box ul { padding-left: 20px; }
+  .summary-box li { font-size: 14px; color: var(--gray-600); margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1><span>通用编码规范</span></h1>
+  <p>多语言通用的代码质量标准 — 防止屎山，从规范开始</p>
+  <div class="hero-meta">
+    <span>v1.0</span>
+    <span>2026-05-16</span>
+    <span>TypeScript / Go / Rust / Python</span>
+  </div>
+</div>
+
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#principles">总则</a>
+    <a href="#file-limits">文件限制</a>
+    <a href="#naming">命名规范</a>
+    <a href="#style">代码风格</a>
+    <a href="#structure">文件结构</a>
+    <a href="#deps">依赖管理</a>
+    <a href="#errors">错误处理</a>
+    <a href="#comments">注释文档</a>
+    <a href="#testing">测试规范</a>
+    <a href="#security">安全规范</a>
+    <a href="#git">Git 规范</a>
+    <a href="#perf">性能规范</a>
+    <a href="#antipattern">反模式</a>
+  </div>
+</nav>
+
+<!-- ===== 1. 总则 ===== -->
+<div class="section" id="principles">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">1</span><h2 class="section-title">总则</h2>
+    <p class="section-desc">所有语言通用的核心原则</p>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>🎯 可读性 > 简洁性</h3>
+      <p>代码被阅读的次数远多于编写的次数。宁可多写几行清晰的代码，不要写一行没人看懂的"聪明"代码。</p>
+    </div>
+    <div class="card">
+      <h3>🧩 单一职责</h3>
+      <p>每个文件、函数、模块只做一件事。如果你需要用"和"来描述一个函数的功能，它就该拆分了。</p>
+    </div>
+    <div class="card">
+      <h3>📏 一致性 > 个人偏好</h3>
+      <p>团队内风格统一比"哪种更好"更重要。所有争议以本规范为准，规范未覆盖的以现有代码风格为准。</p>
+    </div>
+    <div class="card">
+      <h3>🔍 显式 > 隐式</h3>
+      <p>不要靠"魔法"——状态变更、副作用、隐式类型转换都是隐患。让代码意图一目了然。</p>
+    </div>
+  </div>
+
+  <div class="summary-box">
+    <h4>规范等级说明</h4>
+    <ul>
+      <li><span class="badge badge-must">强制</span> 必须遵守，违规即 Bug</li>
+      <li><span class="badge badge-should">推荐</span> 应当遵守，特殊情况可偏离但需注释说明</li>
+      <li><span class="badge badge-may">建议</span> 优秀实践，按场景采纳</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 2. 文件限制 ===== -->
+<div class="section" id="file-limits">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">2</span><h2 class="section-title">文件限制</h2>
+    <p class="section-desc">行数、复杂度、导入数量的硬性上限</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>指标</th><th>TypeScript</th><th>Go</th><th>Rust</th><th>Python</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>单文件行数上限</strong></td>
+          <td>300 行</td>
+          <td>500 行</td>
+          <td>500 行</td>
+          <td>400 行</td>
+        </tr>
+        <tr>
+          <td><strong>单函数行数上限</strong></td>
+          <td>50 行</td>
+          <td>80 行</td>
+          <td>60 行</td>
+          <td>50 行</td>
+        </tr>
+        <tr>
+          <td><strong>函数参数上限</strong></td>
+          <td>4 个（超过用对象）</td>
+          <td>4 个（超过用 Option）</td>
+          <td>4 个（超过用结构体）</td>
+          <td>5 个（超过用 **kwargs）</td>
+        </tr>
+        <tr>
+          <td><strong>嵌套层级上限</strong></td>
+          <td>3 层</td>
+          <td>3 层</td>
+          <td>4 层</td>
+          <td>3 层</td>
+        </tr>
+        <tr>
+          <td><strong>圈复杂度上限</strong></td>
+          <td>10</td>
+          <td>10</td>
+          <td>10</td>
+          <td>10</td>
+        </tr>
+        <tr>
+          <td><strong>导入数量上限</strong></td>
+          <td>20 个/文件</td>
+          <td>15 个/文件</td>
+          <td>20 个/文件</td>
+          <td>20 个/文件</td>
+        </tr>
+        <tr>
+          <td><strong>单行长度上限</strong></td>
+          <td>100 字符</td>
+          <td>120 字符</td>
+          <td>100 字符</td>
+          <td>88 字符</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>超限怎么办？<span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">F-01</div><div class="rule-body"><p>文件超限 → 拆分模块/提取子函数</p></div></div>
+    <div class="rule"><div class="rule-id">F-02</div><div class="rule-body"><p>函数超限 → 提取私有子函数，主函数保持"讲故事"</p></div></div>
+    <div class="rule"><div class="rule-id">F-03</div><div class="rule-body"><p>嵌套超限 → 提前 return / guard clause 减少层级</p></div></div>
+    <div class="rule"><div class="rule-id">F-04</div><div class="rule-body"><p>参数超限 → 用 Options 对象 / 结构体 / Builder 模式</p></div></div>
+    <div class="rule"><div class="rule-id">F-05</div><div class="rule-body"><p>导入超限 → 检查该文件是否职责过多，考虑拆分</p></div></div>
+  </div>
+
+  <div class="do-dont">
+    <div class="do">
+      <code>function processOrder(order: Order) {<br>
+      &nbsp;&nbsp;if (!order.isValid()) return null;<br>
+      &nbsp;&nbsp;const items = filterAvailable(order.items);<br>
+      &nbsp;&nbsp;return calculateTotal(items);<br>
+      }</code>
+    </div>
+    <div class="dont">
+      <code>function processOrder(order: Order) {<br>
+      &nbsp;&nbsp;if (order.isValid()) {<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;if (order.items.length > 0) {<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (hasStock(order)) {<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// 4层嵌套...<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+      &nbsp;&nbsp;}<br>
+      }</code>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 3. 命名 ===== -->
+<div class="section" id="naming">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">3</span><h2 class="section-title">命名规范</h2>
+    <p class="section-desc">好的命名 = 自解释的代码</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>元素</th><th>TypeScript</th><th>Go</th><th>Rust</th><th>Python</th></tr></thead>
+      <tbody>
+        <tr><td><strong>变量/函数</strong></td><td><code>camelCase</code></td><td><code>camelCase</code></td><td><code>snake_case</code></td><td><code>snake_case</code></td></tr>
+        <tr><td><strong>常量</strong></td><td><code>UPPER_SNAKE</code></td><td><code>UpperCamel</code></td><td><code>UPPER_SNAKE</code></td><td><code>UPPER_SNAKE</code></td></tr>
+        <tr><td><strong>类/类型/接口</strong></td><td><code>PascalCase</code></td><td><code>PascalCase</code></td><td><code>PascalCase</code></td><td><code>PascalCase</code></td></tr>
+        <tr><td><strong>文件名</strong></td><td><code>kebab-case.ts</code></td><td><code>snake_case.go</code></td><td><code>snake_case.rs</code></td><td><code>snake_case.py</code></td></tr>
+        <tr><td><strong>包/模块</strong></td><td><code>kebab-case</code></td><td><code>lowercase</code></td><td><code>snake_case</code></td><td><code>snake_case</code></td></tr>
+        <tr><td><strong>枚举值</strong></td><td><code>PascalCase</code></td><td><code>PascalCase</code></td><td><code>PascalCase</code></td><td><code>UPPER_SNAKE</code></td></tr>
+        <tr><td><strong>私有前缀</strong></td><td><code>_</code> 不用</td><td>小写开头</td><td><code>_</code> 前缀</td><td><code>_</code> 前缀</td></tr>
+        <tr><td><strong>布尔变量</strong></td><td><code>is/has/can</code></td><td><code>Is/Has/Can</code></td><td><code>is_/has_</code></td><td><code>is_/has_</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>命名原则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">N-01</div><div class="rule-body"><p>禁止单字母变量（<code>i/j/k</code> 仅限循环计数器）</p></div></div>
+    <div class="rule"><div class="rule-id">N-02</div><div class="rule-body"><p>禁止缩写——<code>usr</code> → <code>user</code>，<code>btn</code> → <code>button</code>，<code>cfg</code> → <code>config</code></p></div></div>
+    <div class="rule"><div class="rule-id">N-03</div><div class="rule-body"><p>函数名用动词开头——<code>get</code>/<code>set</code>/<code>create</code>/<code>delete</code>/<code>update</code>/<code>is</code>/<code>has</code></p></div></div>
+    <div class="rule"><div class="rule-id">N-04</div><div class="rule-body"><p>布尔用 <code>is</code>/<code>has</code>/<code>can</code>/<code>should</code> 开头——<code>isLoading</code>，<code>hasPermission</code></p></div></div>
+    <div class="rule"><div class="rule-id">N-05</div><div class="rule-body"><p>集合用复数——<code>users</code>，<code>items</code>，而非 <code>userList</code></p></div></div>
+    <div class="rule"><div class="rule-id">N-06</div><div class="rule-body"><p>避免否定布尔——<code>isDisabled</code> 而非 <code>isNotEnabled</code></p></div></div>
+    <div class="rule"><div class="rule-id">N-07</div><div class="rule-body"><p>接口不加 <code>I</code> 前缀（TS），实现不加 <code>Impl</code> 后缀</p></div></div>
+  </div>
+
+  <div class="do-dont">
+    <div class="do">
+      <code>const isLoading = true<br>const hasPermission = checkAuth(user)<br>const users = await fetchUsers()<br>function calculateTotal(items: Item[])</code>
+    </div>
+    <div class="dont">
+      <code>const loading = true<br>const permission = checkAuth(user)<br>const userList = await fetchUsers()<br>function calc(i: Item[])</code>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 4. 代码风格 ===== -->
+<div class="section" id="style">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">4</span><h2 class="section-title">代码风格</h2>
+    <p class="section-desc">格式化、缩进、引号、分号等细节统一</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>风格项</th><th>TypeScript</th><th>Go</th><th>Rust</th><th>Python</th></tr></thead>
+      <tbody>
+        <tr><td><strong>缩进</strong></td><td>2 空格</td><td>Tab (gofmt)</td><td>4 空格</td><td>4 空格</td></tr>
+        <tr><td><strong>引号</strong></td><td>单引号</td><td>双引号</td><td>双引号</td><td>单引号 / 双引号</td></tr>
+        <tr><td><strong>分号</strong></td><td>不加</td><td>不加</td><td>加</td><td>不加</td></tr>
+        <tr><td><strong>尾逗号</strong></td><td>加</td><td>不加</td><td>加</td><td>不加</td></tr>
+        <tr><td><strong>花括号</strong></td><td>同行 <code>{</code></td><td>同行 <code>{</code></td><td>同行 <code>{</code></td><td>无</td></tr>
+        <tr><td><strong>等号</strong></td><td><code>===</code></td><td><code>==</code></td><td><code>==</code></td><td><code>==</code></td></tr>
+        <tr><td><strong>格式化工具</strong></td><td>Prettier</td><td>gofmt</td><td>rustfmt</td><td>Black</td></tr>
+        <tr><td><strong>Linter</strong></td><td>ESLint</td><td>staticcheck</td><td>clippy</td><td>ruff / flake8</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>通用风格规则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">S-01</div><div class="rule-body"><p><strong>禁止手动格式化</strong>——必须使用自动格式化工具（Prettier/gofmt/rustfmt/Black），CI 中强制检查</p></div></div>
+    <div class="rule"><div class="rule-id">S-02</div><div class="rule-body"><p><strong>保存即格式化</strong>——IDE 配置保存时自动运行格式化</p></div></div>
+    <div class="rule"><div class="rule-id">S-03</div><div class="rule-body"><p><strong>trailing newline</strong>——所有文件末尾一个空行</p></div></div>
+    <div class="rule"><div class="rule-id">S-04</div><div class="rule-body"><p><strong>no trailing whitespace</strong>——行末不允许多余空格</p></div></div>
+    <div class="rule"><div class="rule-id">S-05</div><div class="rule-body"><p><strong>运算符空格</strong>——<code>a + b</code> 而非 <code>a+b</code></p></div></div>
+    <div class="rule"><div class="rule-id">S-06</div><div class="rule-body"><p><strong>空行规则</strong>——函数之间 1 个空行，类/模块之间 2 个空行，逻辑段落之间 1 个空行</p></div></div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 5. 文件结构 ===== -->
+<div class="section" id="structure">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">5</span><h2 class="section-title">文件结构</h2>
+    <p class="section-desc">项目目录和文件组织方式</p>
+  </div>
+
+  <div class="card">
+    <h3>5.1 通用项目根目录</h3>
+    <div class="code-label">项目根目录</div>
+<pre>
+<span class="k">.</span>
+├── <span class="s">.github/</span>          <span class="c">← CI/CD、PR 模板</span>
+├── <span class="s">docs/</span>             <span class="c">← 设计文档、API 文档</span>
+├── <span class="s">scripts/</span>          <span class="c">← 构建/部署脚本</span>
+├── <span class="s">.gitignore</span>        <span class="c">← Git 忽略规则</span>
+├── <span class="s">.editorconfig</span>     <span class="c">← 编辑器统一配置</span>
+├── <span class="s">LICENSE</span>           <span class="c">← 开源协议</span>
+└── <span class="s">README.md</span>         <span class="c">← 项目说明</span>
+</pre>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>5.2 TypeScript 项目 <span class="badge badge-ts">TS</span></h3>
+<div class="code-label">src/</div>
+<pre>
+<span class="k">src/</span>
+├── <span class="s">components/</span>     <span class="c">← 通用 UI 组件</span>
+│   ├── <span class="s">ui/</span>           <span class="c">← 基础组件(Button/Input...)</span>
+│   └── <span class="s">layout/</span>       <span class="c">← 布局组件</span>
+├── <span class="s">features/</span>       <span class="c">← 按功能模块组织 ⭐</span>
+│   ├── <span class="s">market/</span>
+│   │   ├── <span class="k">components/</span>  <span class="c">← 该功能专用组件</span>
+│   │   ├── <span class="k">hooks/</span>      <span class="c">← 该功能专用 hooks</span>
+│   │   ├── <span class="k">types.ts</span>    <span class="c">← 该功能类型定义</span>
+│   │   └── <span class="k">index.ts</span>    <span class="c">← 对外导出</span>
+│   └── <span class="s">agent/</span>
+├── <span class="s">hooks/</span>          <span class="c">← 通用 hooks</span>
+├── <span class="s">lib/</span>            <span class="c">← 工具函数、第三方封装</span>
+├── <span class="s">stores/</span>         <span class="c">← 全局状态管理</span>
+├── <span class="s">types/</span>          <span class="c">← 全局类型定义</span>
+├── <span class="s">app.tsx</span>         <span class="c">← 应用入口</span>
+└── <span class="s">routes.tsx</span>      <span class="c">← 路由配置</span>
+</pre>
+    </div>
+    <div class="card">
+      <h3>5.3 Go 项目 <span class="badge badge-go">Go</span></h3>
+<div class="code-label">go-project/</div>
+<pre>
+<span class="k">.</span>
+├── <span class="s">cmd/</span>            <span class="c">← 主应用入口</span>
+│   ├── <span class="s">server/</span>     <span class="c">← API 服务</span>
+│   │   └── <span class="k">main.go</span>
+│   └── <span class="s">cli/</span>       <span class="c">← CLI 工具</span>
+│       └── <span class="k">main.go</span>
+├── <span class="s">internal/</span>       <span class="c">← 私有代码（编译器强制）</span>
+│   ├── <span class="s">handler/</span>   <span class="c">← HTTP 处理器</span>
+│   ├── <span class="s">service/</span>   <span class="c">← 业务逻辑</span>
+│   ├── <span class="s">repository/</span><span class="c">← 数据访问层</span>
+│   └── <span class="s">model/</span>     <span class="c">← 数据模型</span>
+├── <span class="s">pkg/</span>            <span class="c">← 可被外部引用的公共库</span>
+├── <span class="s">api/</span>            <span class="c">← OpenAPI/Protobuf 定义</span>
+├── <span class="s">configs/</span>        <span class="c">← 配置文件模板</span>
+├── <span class="s">scripts/</span>        <span class="c">← 构建/部署脚本</span>
+├── <span class="k">go.mod</span>
+└── <span class="k">go.sum</span>
+</pre>
+    </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>5.4 Rust 项目 <span class="badge badge-rust">Rust</span></h3>
+<div class="code-label">rust-project/</div>
+<pre>
+<span class="k">.</span>
+├── <span class="s">src/</span>
+│   ├── <span class="k">main.rs</span>       <span class="c">← 入口</span>
+│   ├── <span class="s">commands/</span>    <span class="c">← Tauri 命令</span>
+│   ├── <span class="s">engine/</span>      <span class="c">← 核心引擎</span>
+│   │   ├── <span class="k">mod.rs</span>
+│   │   └── <span class="k">install.rs</span>
+│   ├── <span class="s">config/</span>      <span class="c">← 配置管理</span>
+│   └── <span class="s">utils/</span>       <span class="c">← 工具函数</span>
+├── <span class="s">tests/</span>          <span class="c">← 集成测试</span>
+├── <span class="k">Cargo.toml</span>
+└── <span class="k">Cargo.lock</span>
+</pre>
+    </div>
+    <div class="card">
+      <h3>5.5 Python 项目 <span class="badge badge-py">Py</span></h3>
+<div class="code-label">py-project/</div>
+<pre>
+<span class="k">.</span>
+├── <span class="s">src/</span> / <span class="s">package_name/</span>
+│   ├── <span class="k">__init__.py</span>
+│   ├── <span class="s">api/</span>         <span class="c">← API 路由</span>
+│   ├── <span class="s">services/</span>    <span class="c">← 业务逻辑</span>
+│   ├── <span class="s">models/</span>      <span class="c">← 数据模型</span>
+│   └── <span class="s">utils/</span>       <span class="c">← 工具函数</span>
+├── <span class="s">tests/</span>          <span class="c">← 测试</span>
+│   ├── <span class="s">conftest.py</span>  <span class="c">← pytest fixtures</span>
+│   └── <span class="s">test_*.py</span>
+├── <span class="s">scripts/</span>        <span class="c">← 脚本</span>
+├── <span class="k">pyproject.toml</span>
+└── <span class="k">requirements.txt</span>
+</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>5.6 文件组织原则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">ST-01</div><div class="rule-body"><p><strong>按功能分组优于按类型分组</strong>——feature/market/components/ 优于 components/market/</p></div></div>
+    <div class="rule"><div class="rule-id">ST-02</div><div class="rule-body"><p><strong>就近原则</strong>——组件、样式、测试、类型尽量放在同一个目录</p></div></div>
+    <div class="rule"><div class="rule-id">ST-03</div><div class="rule-body"><p><strong>index 作为导出面</strong>——每个模块通过 <code>index.ts</code>/<code>mod.rs</code>/<code>__init__.py</code> 统一导出</p></div></div>
+    <div class="rule"><div class="rule-id">ST-04</div><div class="rule-body"><p><strong>禁止循环依赖</strong>——模块 A 依赖 B，B 不能再依赖 A</p></div></div>
+    <div class="rule"><div class="rule-id">ST-05</div><div class="rule-body"><p><strong>公共代码下沉</strong>——被 3 个以上模块共用的代码提取到公共层</p></div></div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 6. 依赖 ===== -->
+<div class="section" id="deps">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">6</span><h2 class="section-title">依赖管理</h2>
+    <p class="section-desc">引入什么、怎么引入、版本锁定</p>
+  </div>
+
+  <div class="card">
+    <h3>6.1 引入依赖的原则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">D-01</div><div class="rule-body"><p><strong>能用标准库就不用第三方</strong>——标准库稳定、无供应链风险</p></div></div>
+    <div class="rule"><div class="rule-id">D-02</div><div class="rule-body"><p><strong>一个功能只引入一个库</strong>——日期只用 dayjs，不要同时用 moment + dayjs</p></div></div>
+    <div class="rule"><div class="rule-id">D-03</div><div class="rule-body"><p><strong>新增依赖必须评估</strong>——检查：周下载量、最后更新时间、issue 数、license、bundle size</p></div></div>
+    <div class="rule"><div class="rule-id">D-04</div><div class="rule-body"><p><strong>锁文件必须提交</strong>——package-lock.json / go.sum / Cargo.lock / poetry.lock</p></div></div>
+    <div class="rule"><div class="rule-id">D-05</div><div class="rule-body"><p><strong>禁止依赖未维护的包</strong>——6个月无更新 + 大量未处理 issue = 不用</p></div></div>
+  </div>
+
+  <div class="card">
+    <h3>6.2 依赖评估清单 <span class="badge badge-should">推荐</span></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>检查项</th><th>通过标准</th></tr></thead>
+        <tbody>
+          <tr><td>周下载量</td><td>> 10,000</td></tr>
+          <tr><td>最后更新</td><td>< 6 个月</td></tr>
+          <tr><td>Open Issues</td><td>< 50（相对 Star 数）</td></tr>
+          <tr><td>License</td><td>MIT / Apache-2.0 / BSD</td></tr>
+          <tr><td>Bundle Size (前端)</td><td>< 50KB gzipped</td></tr>
+          <tr><td>类型支持 (TS)</td><td>内置类型声明 或 @types/*</td></tr>
+          <tr><td>安全漏洞</td><td>npm audit / go vulncheck 无高危</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>6.3 各语言包管理 <span class="badge badge-must">强制</span></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>语言</th><th>包管理</th><th>锁文件</th><th>安装命令</th><th>审计命令</th></tr></thead>
+        <tbody>
+          <tr><td>TypeScript</td><td>pnpm (首选) / npm</td><td>pnpm-lock.yaml</td><td><code>pnpm add</code></td><td><code>pnpm audit</code></td></tr>
+          <tr><td>Go</td><td>go modules</td><td>go.sum</td><td><code>go get</code></td><td><code>go vulncheck</code></td></tr>
+          <tr><td>Rust</td><td>cargo</td><td>Cargo.lock</td><td><code>cargo add</code></td><td><code>cargo audit</code></td></tr>
+          <tr><td>Python</td><td>poetry / uv</td><td>poetry.lock</td><td><code>poetry add</code></td><td><code>pip audit</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 7. 错误处理 ===== -->
+<div class="section" id="errors">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">7</span><h2 class="section-title">错误处理</h2>
+    <p class="section-desc">不要吞错误、不要裸 panic、不要 ignore</p>
+  </div>
+
+  <div class="card">
+    <h3>7.1 通用规则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">E-01</div><div class="rule-body"><p><strong>禁止吞错误</strong>——<code>catch(e) {}</code> / <code>except: pass</code> / <code>_ = mightFail()</code> 绝对禁止</p></div></div>
+    <div class="rule"><div class="rule-id">E-02</div><div class="rule-body"><p><strong>错误必须包含上下文</strong>——不要只抛 "operation failed"，要包含 "what operation, on what, why"</p></div></div>
+    <div class="rule"><div class="rule-id">E-03</div><div class="rule-body"><p><strong>在能处理错误的层级处理</strong>——不要在底层吞掉，不要在上层无脑 re-throw</p></div></div>
+    <div class="rule"><div class="rule-id">E-04</div><div class="rule-body"><p><strong>区分业务错误和系统错误</strong>——业务错误（参数校验）用 4xx，系统错误（数据库挂了）用 5xx</p></div></div>
+    <div class="rule"><div class="rule-id">E-05</div><div class="rule-body"><p><strong>不要用错误做流程控制</strong>——"找不到"不是错误，是正常的业务分支</p></div></div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <h3>TypeScript <span class="badge badge-ts">TS</span></h3>
+      <div class="do-dont">
+        <div class="do"><code>try {<br>&nbsp;&nbsp;const data = await fetchData();<br>} catch (error) {<br>&nbsp;&nbsp;logger.error('Failed to fetch user data', { userId, error });<br>&nbsp;&nbsp;throw new AppError('FETCH_FAILED', { cause: error });<br>}</code></div>
+        <div class="dont"><code>try {<br>&nbsp;&nbsp;const data = await fetchData();<br>} catch (e) {<br>&nbsp;&nbsp;// TODO: handle error<br>}</code></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Go <span class="badge badge-go">Go</span></h3>
+      <div class="do-dont">
+        <div class="do"><code>data, err := fetchData()<br>if err != nil {<br>&nbsp;&nbsp;return fmt.Errorf("fetch user %s: %w", userId, err)<br>}</code></div>
+        <div class="dont"><code>data, _ := fetchData()</code></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 8. 注释 ===== -->
+<div class="section" id="comments">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">8</span><h2 class="section-title">注释与文档</h2>
+    <p class="section-desc">好的代码自解释，注释只解释 WHY</p>
+  </div>
+
+  <div class="card">
+    <h3>8.1 注释原则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">C-01</div><div class="rule-body"><p><strong>注释解释 WHY，不解释 WHAT</strong>——代码已经说了做什么，注释只说为什么这样做</p></div></div>
+    <div class="rule"><div class="rule-id">C-02</div><div class="rule-body"><p><strong>公共 API 必须有文档注释</strong>——所有 export 的函数/类/接口必须有 JSDoc / godoc / doc comment</p></div></div>
+    <div class="rule"><div class="rule-id">C-03</div><div class="rule-body"><p><strong>TODO 必须带信息</strong>——<code>// TODO(zhangsan): 具体描述 + #issue编号</code></p></div></div>
+    <div class="rule"><div class="rule-id">C-04</div><div class="rule-body"><p><strong>注释掉的代码直接删</strong>——有 Git 历史，不需要注释保留旧代码</p></div></div>
+    <div class="rule"><div class="rule-id">C-05</div><div class="rule-body"><p><strong>特殊处理必须有注释</strong>——Hack、Workaround、兼容逻辑必须说明原因</p></div></div>
+  </div>
+
+  <div class="do-dont">
+    <div class="do">
+      <code>// 降级到 v1 API，因为 v2 在 iOS 15 上有 CORS 问题 (#1234)<br>const url = useV2 ? v2Endpoint : v1Endpoint;</code>
+    </div>
+    <div class="dont">
+      <code>// 设置 URL<br>const url = useV2 ? v2Endpoint : v1Endpoint;</code>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 9. 测试 ===== -->
+<div class="section" id="testing">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">9</span><h2 class="section-title">测试规范</h2>
+    <p class="section-desc">不写测试的代码 = 不负责任的代码</p>
+  </div>
+
+  <div class="card">
+    <h3>9.1 测试要求 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">T-01</div><div class="rule-body"><p><strong>覆盖率底线</strong>——核心逻辑 ≥ 80%，工具函数 ≥ 90%，UI 组件 ≥ 60%</p></div></div>
+    <div class="rule"><div class="rule-id">T-02</div><div class="rule-body"><p><strong>测试命名</strong>——<code>test('should return 404 when user not found')</code>，不用 <code>test('user test 1')</code></p></div></div>
+    <div class="rule"><div class="rule-id">T-03</div><div class="rule-body"><p><strong>AAA 模式</strong>——Arrange（准备）→ Act（执行）→ Assert（断言）</p></div></div>
+    <div class="rule"><div class="rule-id">T-04</div><div class="rule-body"><p><strong>每个测试独立</strong>——不依赖其他测试的执行顺序或副作用</p></div></div>
+    <div class="rule"><div class="rule-id">T-05</div><div class="rule-body"><p><strong>PR 必须包含测试</strong>——新增功能/修复 Bug 必须有对应测试</p></div></div>
+  </div>
+
+  <div class="card">
+    <h3>9.2 各语言测试框架</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>语言</th><th>单元测试</th><th>E2E</th><th>Mock</th><th>覆盖率</th></tr></thead>
+        <tbody>
+          <tr><td>TypeScript</td><td>Vitest / Jest</td><td>Playwright</td><td>vi.fn() / msw</td><td>c8 / istanbul</td></tr>
+          <tr><td>Go</td><td>testing (内置)</td><td>—</td><td>gomock / testify</td><td>go test -cover</td></tr>
+          <tr><td>Rust</td><td>#[test] (内置)</td><td>—</td><td>mockall</td><td>cargo tarpaulin</td></tr>
+          <tr><td>Python</td><td>pytest</td><td>Playwright</td><td>pytest-mock</td><td>pytest-cov</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 10. 安全 ===== -->
+<div class="section" id="security">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">10</span><h2 class="section-title">安全规范</h2>
+    <p class="section-desc">安全不是可选项</p>
+  </div>
+
+  <div class="card">
+    <h3>10.1 安全红线 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">SEC-01</div><div class="rule-body"><p><strong>禁止硬编码密钥</strong>——API Key、密码、Token 必须通过环境变量或密钥管理服务注入</p></div></div>
+    <div class="rule"><div class="rule-id">SEC-02</div><div class="rule-body"><p><strong>禁止 <code>eval()</code></strong>——以及所有动态代码执行，没有例外</p></div></div>
+    <div class="rule"><div class="rule-id">SEC-03</div><div class="rule-body"><p><strong>SQL 必须参数化</strong>——禁止字符串拼接 SQL</p></div></div>
+    <div class="rule"><div class="rule-id">SEC-04</div><div class="rule-body"><p><strong>用户输入必须校验和转义</strong>——前后端都要，防止 XSS/注入</p></div></div>
+    <div class="rule"><div class="rule-id">SEC-05</div><div class="rule-body"><p><strong>依赖安全审计</strong>——CI 中必须运行 <code>npm audit</code> / <code>go vulncheck</code> / <code>cargo audit</code></p></div></div>
+    <div class="rule"><div class="rule-id">SEC-06</div><div class="rule-body"><p><strong>敏感数据不进日志</strong>——密码、Token、身份证号等不能出现在日志中</p></div></div>
+  </div>
+
+  <div class="do-dont">
+    <div class="do">
+      <code>const apiKey = process.env.API_KEY<br>db.query('SELECT * FROM users WHERE id = $1', [userId])<br>const safe = escapeHtml(userInput)</code>
+    </div>
+    <div class="dont">
+      <code>const apiKey = 'sk-abc123...'<br>db.query(`SELECT * FROM users WHERE id = ${userId}`)<br>eval(userInput)</code>
+    </div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 11. Git ===== -->
+<div class="section" id="git">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">11</span><h2 class="section-title">Git 规范</h2>
+    <p class="section-desc">提交历史也是文档</p>
+  </div>
+
+  <div class="card">
+    <h3>11.1 分支策略 <span class="badge badge-should">推荐</span></h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>分支</th><th>用途</th><th>命名</th></tr></thead>
+        <tbody>
+          <tr><td><code>main</code></td><td>生产代码，永远可部署</td><td>—</td></tr>
+          <tr><td><code>develop</code></td><td>开发集成分支</td><td>—</td></tr>
+          <tr><td>功能分支</td><td>新功能开发</td><td><code>feat/agent-market</code></td></tr>
+          <tr><td>修复分支</td><td>Bug 修复</td><td><code>fix/login-error</code></td></tr>
+          <tr><td>发布分支</td><td>版本发布准备</td><td><code>release/v1.0.0</code></td></tr>
+          <tr><td>热修复</td><td>线上紧急修复</td><td><code>hotfix/payment-crash</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>11.2 Commit 规范 <span class="badge badge-must">强制</span></h3>
+    <p style="font-size:14px;color:var(--gray-600);margin-bottom:16px;">采用 Conventional Commits 格式：</p>
+    <div class="code-label">格式</div>
+    <pre><span class="k">&lt;type&gt;</span>(<span class="k">&lt;scope&gt;</span>): <span class="k">&lt;description&gt;</span>
+
+<span class="c">[可选] 详细说明</span>
+<span class="c">[可选] Breaking change / Close #xxx</span></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>用途</th><th>示例</th></tr></thead>
+        <tbody>
+          <tr><td><code>feat</code></td><td>新功能</td><td>feat(market): add agent search</td></tr>
+          <tr><td><code>fix</code></td><td>Bug 修复</td><td>fix(auth): resolve token expiry issue</td></tr>
+          <tr><td><code>docs</code></td><td>文档变更</td><td>docs: update API reference</td></tr>
+          <tr><td><code>style</code></td><td>格式调整（不影响逻辑）</td><td>style: fix indentation</td></tr>
+          <tr><td><code>refactor</code></td><td>重构（不是新功能也不是修 Bug）</td><td>refactor(engine): extract install logic</td></tr>
+          <tr><td><code>perf</code></td><td>性能优化</td><td>perf(list): virtualize agent list</td></tr>
+          <tr><td><code>test</code></td><td>添加/修改测试</td><td>test(market): add search test</td></tr>
+          <tr><td><code>chore</code></td><td>构建/工具链变更</td><td>chore: upgrade dependencies</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>11.3 Commit 规则 <span class="badge badge-must">强制</span></h3>
+    <div class="rule"><div class="rule-id">G-01</div><div class="rule-body"><p><strong>一个 commit 做一件事</strong>——不要把 3 个功能混在一个 commit</p></div></div>
+    <div class="rule"><div class="rule-id">G-02</div><div class="rule-body"><p><strong>commit 前跑 lint 和测试</strong>——CI 会检查，别浪费 CI 时间</p></div></div>
+    <div class="rule"><div class="rule-id">G-03</div><div class="rule-body"><p><strong>禁止 commit 敏感文件</strong>——.env、密钥文件、大型二进制文件</p></div></div>
+    <div class="rule"><div class="rule-id">G-04</div><div class="rule-body"><p><strong>描述用现在时态</strong>——"add feature" 而非 "added feature"</p></div></div>
+    <div class="rule"><div class="rule-id">G-05</div><div class="rule-body"><p><strong>PR 合并用 squash</strong>——保持 main 历史干净</p></div></div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 12. 性能 ===== -->
+<div class="section" id="perf">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">12</span><h2 class="section-title">性能规范</h2>
+    <p class="section-desc">先写对，再写快</p>
+  </div>
+
+  <div class="card">
+    <h3>12.1 性能原则 <span class="badge badge-should">推荐</span></h3>
+    <div class="rule"><div class="rule-id">P-01</div><div class="rule-body"><p><strong>不要过早优化</strong>——先保证正确，有性能问题时再优化，用 profiler 定位瓶颈</p></div></div>
+    <div class="rule"><div class="rule-id">P-02</div><div class="rule-body"><p><strong>O(n²) 以下必须优化</strong>——循环内查询数据库、循环内网络请求绝对禁止</p></div></div>
+    <div class="rule"><div class="rule-id">P-03</div><div class="rule-body"><p><strong>列表必须分页/虚拟化</strong>——不要一次加载 10000 条数据</p></div></div>
+    <div class="rule"><div class="rule-id">P-04</div><div class="rule-body"><p><strong>大计算放后端</strong>——前端不做重计算，导出/分析等放后端异步处理</p></div></div>
+    <div class="rule"><div class="rule-id">P-05</div><div class="rule-body"><p><strong>图片/资源懒加载</strong>——不在首屏的图片、组件延迟加载</p></div></div>
+  </div>
+</div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 13. 反模式 ===== -->
+<div class="section" id="antipattern">
+<div class="container">
+  <div class="section-header">
+    <span class="section-number">13</span><h2 class="section-title">反模式黑名单</h2>
+    <p class="section-desc">看到这些写法就改掉</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>反模式</th><th>描述</th><th>正确做法</th></tr></thead>
+      <tbody>
+        <tr><td>🚫 God Object</td><td>一个文件/类承担所有职责</td><td>拆分为单一职责模块</td></tr>
+        <tr><td>🚫 Magic Number</td><td>代码中出现 <code>if (status === 3)</code></td><td>用常量 <code>if (status === Status.ACTIVE)</code></td></tr>
+        <tr><td>🚫 Callback Hell</td><td>多层嵌套回调</td><td>用 async/await 或 Promise 链</td></tr>
+        <tr><td>🚫 Copy-Paste Code</td><td>相同逻辑复制多份</td><td>提取公共函数</td></tr>
+        <tr><td>🚫 Premature Abstraction</td><td>只有一个实现就抽接口</td><td>有 3 个相似实现时再抽象</td></tr>
+        <tr><td>🚫 Global State</td><td>全局可变状态随处修改</td><td>状态集中管理，单向数据流</td></tr>
+        <tr><td>🚫 Leaky Abstraction</td><td>抽象层暴露底层细节</td><td>封装要完整，接口要干净</td></tr>
+        <tr><td>🚫 String Typing</td><td>用字符串表示类型 <code>type: 'user'</code></td><td>用枚举/联合类型</td></tr>
+        <tr><td>🚫 Console.log 调试</td><td>调试用的 log 提交到代码里</td><td>用 logger，调试完删除</td></tr>
+        <tr><td>🚫 Any / interface{}</td><td>逃逸类型检查</td><td>定义明确的类型</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="summary-box">
+    <h4>快速自查清单</h4>
+    <ul>
+      <li>✅ 文件行数是否超限？</li>
+      <li>✅ 函数是否只做一件事？</li>
+      <li>✅ 命名是否自解释？</li>
+      <li>✅ 是否有吞错误的地方？</li>
+      <li>✅ 是否有硬编码的密钥或 Magic Number？</li>
+      <li>✅ 注释是否解释了 WHY？</li>
+      <li>✅ 测试是否覆盖核心逻辑？</li>
+      <li>✅ 依赖是否经过评估？</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<div class="footer">
+  <p>通用编码规范 v1.0 | 2026-05-16 | 参考：Airbnb JS / Uber Go / Rust API Guidelines / PEP 8</p>
+</div>
+
+</body>
+</html>

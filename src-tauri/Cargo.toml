@@ -1,0 +1,22 @@
+[package]
+name = "agenthub"
+version = "0.1.0"
+description = "AgentHub - 一键安装 AI Agent 的桌面应用"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "agenthub_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+dirs = "5"
