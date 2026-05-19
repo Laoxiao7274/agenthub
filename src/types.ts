@@ -34,6 +34,7 @@ export interface AgentSkill {
   prompt: string
   model: string
   tools: string[]
+  summary?: string
 }
 
 export interface ProjectConfig {
@@ -95,7 +96,17 @@ export const PROVIDER_COLORS: Record<string, string> = {
 
 export const ALL_TOOLS = ['read_file', 'write_file', 'search_files', 'terminal', 'edit', 'grep', 'list_files', 'web_fetch']
 
-export const DEFAULT_PROVIDERS: Provider[] = []
+export const DEFAULT_PROVIDERS: Provider[] = [
+  {
+    id: 'local-api',
+    name: 'Local API',
+    apiKey: '',
+    baseUrl: 'http://119.96.73.226:9910/v1',
+    model: '',
+    smallModel: '',
+    advisorModel: '',
+  },
+]
 
 export const MOCK_PROJECTS: Project[] = [
   { id: 'p1', name: 'MYT Client', path: 'C:\\Users\\xzy\\Desktop\\gs\\pc-client\\MYT', initial: 'M', lastUsed: '2m ago', running: true },

@@ -10,7 +10,7 @@ import { buildConfigInput, writeConfigSilent } from '../lib/project-config'
 
 export interface ConfirmState {
   message: string
-  onConfirm: (checkboxResult: boolean) => void
+  onConfirm: (checkboxResult?: boolean) => void
   checkboxLabel?: string
 }
 
@@ -31,6 +31,7 @@ export function useAppStore() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [agentBusy, setAgentBusy] = useState(false)
+  const [initRunning, setInitRunning] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmState | null>(null)
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
@@ -83,6 +84,29 @@ export function useAppStore() {
     }
   }
 
+  const runInit = async () => {
+    if (!activeProject || !activeConfig) return
+    // Pre-checks
+    const provider = providers.find((p) => p.id === activeConfig.providerId)
+    if (!activeConfig.providerId || !provider) {
+      showToast('❌ 请先选择服务商')
+      return
+    }
+    if (!provider.apiKey || !provider.baseUrl || !provider.model) {
+      showToast('❌ 服务商配置不完整（需要 Base URL、API Key、Model）')
+      return
+    }
+    setInitRunning(true)
+    try {
+      await tauri.initAgent(activeProject.path)
+      showToast('✅ Agent initialized')
+    } catch (e: any) {
+      showToast('❌ ' + (e?.toString() || 'Init failed'))
+    } finally {
+      setInitRunning(false)
+    }
+  }
+
   // Debounced auto-save to disk
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoSaveConfig = (config: ProjectConfig) => {
@@ -117,10 +141,7 @@ export function useAppStore() {
     const newProject: Project = { id, name, path, initial, lastUsed: 'Just now', running: false, initializing: true }
     const newConfig: ProjectConfig = {
       agentType: 'claude-code', providerId: '', model: '', smallModel: '', advisorModel: '',
-      claudeMd: '', permissionMode: 'default', mcpServers: [], skills: [
-        { id: 'builtin-find-skills', name: 'find-skills', prompt: 'Skill discovery — search and install skills via skillhub install find-skills', model: '', tools: [] },
-        { id: 'builtin-self-improving-agent', name: 'self-improving-agent', prompt: 'Self-improving agent — analyze runtime errors and generate improvements via skillhub install self-improving-agent', model: '', tools: [] },
-      ],
+      claudeMd: '', permissionMode: 'default', mcpServers: [], skills: [],
       hooks: { preToolUse: '', postToolUse: '', notification: '', stop: '' },
     }
     // Add project to UI immediately (with initializing flag)
@@ -134,7 +155,7 @@ export function useAppStore() {
       saveToStorage(STORAGE_KEY_CONFIGS, next)
       return next
     })
-    // Run init in background
+    // Run init in background (download skills)
     try {
       await tauri.ensureFolder(path)
       await writeConfigSilent(path, newConfig, providers)
@@ -150,6 +171,10 @@ export function useAppStore() {
         return next
       })
     }
+    // Open project detail
+    setActiveProjectId(id)
+    setPage('project-detail')
+    setDetailTab('provider')
   }
 
   const removeProject = (id: string, deleteFolder: boolean) => {
@@ -173,10 +198,71 @@ export function useAppStore() {
     }
   }
 
-  const openProject = (id: string) => {
+  const openProject = async (id: string) => {
+    const project = projects.find((p) => p.id === id)
+    if (!project) return
     setActiveProjectId(id)
     setPage('project-detail')
     setDetailTab('agent')
+    // Read config from disk and merge into state
+    try {
+      const disk = await tauri.readProjectConfig(project.path)
+      const existing = configs[id]
+      if (!existing) return
+      let updated = { ...existing }
+
+      // CLAUDE.md
+      if (disk.claudeMd && typeof disk.claudeMd === 'string') {
+        updated.claudeMd = disk.claudeMd
+      }
+      // Model from settings.local.json env
+      if (disk.localSettings?.env) {
+        const env = disk.localSettings.env
+        if (env.ANTHROPIC_MODEL) updated.model = env.ANTHROPIC_MODEL
+        if (env.ANTHROPIC_SMALL_FAST_MODEL) updated.smallModel = env.ANTHROPIC_SMALL_FAST_MODEL
+        if (env.ANTHROPIC_BASE_URL) {
+          // Try to match provider by baseUrl
+          const match = providers.find((p) => p.baseUrl === env.ANTHROPIC_BASE_URL)
+          if (match) updated.providerId = match.id
+        }
+      }
+      // Permission mode from settings.json
+      if (disk.settings?.permissions?.defaultMode) {
+        updated.permissionMode = disk.settings.permissions.defaultMode
+      }
+      // MCP servers from settings.json
+      if (disk.settings?.mcpServers) {
+        const mcpObj = disk.settings.mcpServers as Record<string, any>
+        const servers = Object.entries(mcpObj).map(([name, val]: [string, any]) => ({
+          id: `mcp-${name}`,
+          name,
+          command: val.command || '',
+          args: (val.args || []).join(' '),
+          enabled: true,
+        }))
+        if (servers.length > 0) updated.mcpServers = servers
+      }
+      // Hooks from settings.json
+      if (disk.settings?.hooks) {
+        const hooks = disk.settings.hooks as Record<string, any>
+        if (hooks.PreToolUse?.[0]?.command) updated.hooks.preToolUse = hooks.PreToolUse[0].command
+        if (hooks.PostToolUse?.[0]?.command) updated.hooks.postToolUse = hooks.PostToolUse[0].command
+        if (hooks.Notification?.[0]?.command) updated.hooks.notification = hooks.Notification[0].command
+        if (hooks.Stop?.[0]?.command) updated.hooks.stop = hooks.Stop[0].command
+      }
+      // Advisor model from global settings
+      if (disk.settings?.advisorModel) {
+        updated.advisorModel = disk.settings.advisorModel
+      }
+
+      setConfigs((prev) => {
+        const next = { ...prev, [id]: updated }
+        saveToStorage(STORAGE_KEY_CONFIGS, next)
+        return next
+      })
+    } catch {
+      // Silently ignore read errors — use stored config as fallback
+    }
   }
 
   return {
@@ -186,10 +272,10 @@ export function useAppStore() {
     activeProject, activeConfig,
     detailTab, setDetailTab,
     showAddProject, setShowAddProject,
-    saving, toast, agentBusy,
+    saving, toast, agentBusy, initRunning,
     confirmAction, setConfirmAction,
     confirmThen, showToast,
-    saveConfig, startAgent, updateConfig,
+    saveConfig, startAgent, runInit, updateConfig,
     handleProvidersChange, addProject, removeProject, openProject,
   }
 }

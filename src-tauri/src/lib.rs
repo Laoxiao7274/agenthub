@@ -3,6 +3,7 @@ mod cc_switch;
 mod commands;
 mod config;
 mod types;
+mod ai;
 
 use types::AgentChild;
 
@@ -29,6 +30,13 @@ pub fn run() {
             commands::init_project,
             commands::delete_folder,
             commands::ensure_folder,
+            commands::open_folder,
+            commands::init_agent,
+            commands::test_api,
+            ai::ai_chat,
+            ai::ai_analyze,
+            ai::ai_update,
+            ai::ai_apply,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

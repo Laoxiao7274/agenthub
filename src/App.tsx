@@ -6,6 +6,7 @@ import {
 import { I18nContext, createI18n } from './i18n'
 import type { Lang } from './i18n'
 import type { DetailTab, AgentType } from './types'
+import { APP_TYPE_BADGE } from './types'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { AgentSection } from './components/AgentSection'
 import { ProviderSection } from './components/ProviderSection'
@@ -15,6 +16,7 @@ import { ClaudeMdSection, PermissionsSection, HooksSection } from './components/
 import { SettingsPage } from './components/SettingsPage'
 import { AddProjectModal } from './components/AddProjectModal'
 import { useAppStore } from './hooks/useAppStore'
+import { tauri } from './tauri'
 
 const DETAIL_TABS: { key: DetailTab, icon: React.ReactNode, agents?: AgentType[] }[] = [
   { key: 'agent', icon: <Cpu size={13} /> },
@@ -114,7 +116,7 @@ export default function App() {
   )
 }
 
-function TopBar({ t, store }: { t: (k: string) => string; store: ReturnType<typeof useAppStore> }) {
+function TopBar({ t, store }: { t: (k: string, params?: Record<string, string>) => string; store: ReturnType<typeof useAppStore> }) {
   return (
     <div className="top-bar">
       <div className="top-bar-title">
@@ -133,11 +135,27 @@ function TopBar({ t, store }: { t: (k: string) => string; store: ReturnType<type
       )}
       {store.page === 'project-detail' && store.activeProject && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span className="top-bar-path">{store.activeProject.path}</span>
+          <span
+            className="top-bar-path"
+            style={{ cursor: 'pointer' }}
+            onClick={() => tauri.openFolder(store.activeProject!.path).catch(() => {})}
+            title={t('projects.openFolder') || 'Open in explorer'}
+          >
+            {store.activeProject.path}
+          </span>
+          <button
+            className="btn"
+            onClick={store.runInit}
+            disabled={store.initRunning}
+            title={t('projects.initAgent') || 'Initialize agent'}
+          >
+            {store.initRunning ? <Loader2 size={12} className="spin" /> : <Cpu size={12} />}
+            {store.initRunning ? t('projects.initAgentRunning') : t('projects.initAgent')}
+          </button>
           <button
             className="btn"
             onClick={store.saveConfig}
-            disabled={store.saving || !store.activeConfig?.providerId}
+            disabled={store.saving || store.initRunning || !store.activeConfig?.providerId}
             title={t('agent.saveConfig') || 'Save config to disk'}
           >
             {store.saving ? <Loader2 size={12} className="spin" /> : <Save size={12} />}
@@ -146,11 +164,11 @@ function TopBar({ t, store }: { t: (k: string) => string; store: ReturnType<type
           <button
             className="btn btn-primary"
             onClick={store.startAgent}
-            disabled={store.agentBusy || !store.activeConfig?.providerId}
-            title="Start agent"
+            disabled={store.agentBusy || store.initRunning || !store.activeConfig?.providerId}
+            title={t('agent.startAgent') || 'Start agent'}
           >
             {store.agentBusy ? <Loader2 size={12} className="spin" /> : <Play size={12} />}
-            Start
+            {t('agent.startAgent') || 'Start'}
           </button>
         </div>
       )}
@@ -158,7 +176,7 @@ function TopBar({ t, store }: { t: (k: string) => string; store: ReturnType<type
   )
 }
 
-function TabBar({ t, store }: { t: (k: string) => string; store: ReturnType<typeof useAppStore> }) {
+function TabBar({ t, store }: { t: (k: string, params?: Record<string, string>) => string; store: ReturnType<typeof useAppStore> }) {
   if (store.page !== 'project-detail' || !store.activeConfig) return null
   return (
     <div className="tab-bar">
@@ -177,7 +195,7 @@ function TabBar({ t, store }: { t: (k: string) => string; store: ReturnType<type
   )
 }
 
-function PageContent({ t, store }: { t: (k: string) => string; store: ReturnType<typeof useAppStore> }) {
+function PageContent({ t, store }: { t: (k: string, params?: Record<string, string>) => string; store: ReturnType<typeof useAppStore> }) {
   if (store.page === 'settings') return <SettingsPage />
 
   if (store.page === 'projects' && !store.activeProjectId) {
@@ -195,9 +213,19 @@ function PageContent({ t, store }: { t: (k: string) => string; store: ReturnType
                 className="btn btn-ghost btn-sm"
                 onClick={(e) => {
                   e.stopPropagation()
+                  tauri.openFolder(project.path).catch(() => {})
+                }}
+                title={t('projects.openFolder') || 'Open folder'}
+              >
+                <FolderKanban size={12} />
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation()
                   store.setConfirmAction({
                     message: t('confirm.deleteProject', { name: project.name }),
-                    onConfirm: (deleteFolder: boolean) => store.removeProject(project.id, deleteFolder),
+                    onConfirm: (deleteFolder?: boolean) => store.removeProject(project.id, !!deleteFolder),
                     checkboxLabel: t('confirm.deleteFolder', { path: project.path }),
                   })
                 }}
@@ -205,10 +233,22 @@ function PageContent({ t, store }: { t: (k: string) => string; store: ReturnType
                 <Trash2 size={12} />
               </button>
             </div>
-            <div className="mcsm-card-icon">
-              <div className="project-avatar">{project.initial}</div>
+            <div className="mcsm-card-header">
+              <div className="mcsm-card-icon">
+                <div className="project-avatar">{project.initial}</div>
+              </div>
+              <div className="mcsm-card-name">{project.name}</div>
             </div>
-            <div className="mcsm-card-name">{project.name}</div>
+            <div
+              className="mcsm-card-path"
+              onClick={(e) => {
+                e.stopPropagation()
+                tauri.openFolder(project.path).catch(() => {})
+              }}
+              title={t('projects.openFolder') || 'Open folder'}
+            >
+              {project.path}
+            </div>
             <div className="mcsm-card-status">
               {project.initializing ? (
                 <>
@@ -222,6 +262,17 @@ function PageContent({ t, store }: { t: (k: string) => string; store: ReturnType
                     ? <span className="mcsm-status-active">{t('projects.open')}</span>
                     : <span className="mcsm-status-idle">{project.lastUsed}</span>
                   }
+                  {store.configs[project.id] && (() => {
+                    const badge = APP_TYPE_BADGE[store.configs[project.id].agentType]
+                    return badge ? (
+                      <span style={{
+                        fontSize: 9, fontWeight: 600, padding: '1px 5px',
+                        borderRadius: 3, marginLeft: 'auto',
+                        background: badge.color + '18', color: badge.color,
+                        border: `1px solid ${badge.color}33`,
+                      }}>{badge.label}</span>
+                    ) : null
+                  })()}
                 </>
               )}
             </div>
@@ -261,7 +312,14 @@ function PageContent({ t, store }: { t: (k: string) => string; store: ReturnType
           <McpSection config={store.activeConfig} onChange={store.updateConfig} confirmThen={store.confirmThen} />
         )}
         {store.detailTab === 'skills' && (
-          <SkillsSection config={store.activeConfig} onChange={store.updateConfig} confirmThen={store.confirmThen} />
+          <SkillsSection
+            config={store.activeConfig}
+            onChange={store.updateConfig}
+            confirmThen={store.confirmThen}
+            providers={store.providers}
+            activeProject={store.activeProject}
+            showToast={store.showToast}
+          />
         )}
         {store.detailTab === 'claudeMd' && (
           <ClaudeMdSection config={store.activeConfig} onChange={store.updateConfig} />

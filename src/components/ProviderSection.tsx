@@ -1,6 +1,7 @@
 import { useState, Fragment } from 'react'
-import { Key, Plus, Download, Settings, Trash2 } from 'lucide-react'
+import { Key, Plus, Download, Settings, Trash2, Wifi, Loader2 } from 'lucide-react'
 import { useI18n } from '../i18n'
+import { tauri } from '../tauri'
 import type { ProjectConfig, Provider, CcSwitchProvider } from '../types'
 import { CcSwitchImportModal } from './CcSwitchImportModal'
 
@@ -20,6 +21,21 @@ export function ProviderSection({
   const { t } = useI18n()
   const [showCcSwitch, setShowCcSwitch] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
+
+  const testProvider = async (p: Provider) => {
+    setTestingId(p.id)
+    setTestResult((prev) => { const n = { ...prev }; delete n[p.id]; return n })
+    try {
+      const result = await tauri.testApi(p.baseUrl, p.apiKey, p.model)
+      setTestResult((prev) => ({ ...prev, [p.id]: { ok: true, msg: result } }))
+    } catch (e: any) {
+      setTestResult((prev) => ({ ...prev, [p.id]: { ok: false, msg: e?.toString() || 'Test failed' } }))
+    } finally {
+      setTestingId(null)
+    }
+  }
 
   const handleCcSwitchImport = (items: CcSwitchProvider[]) => {
     const newProviders = [...providers]
@@ -141,6 +157,21 @@ export function ProviderSection({
                   <div className="field-row">
                     <span className="field-label">{t('provider.advisorModel')}</span>
                     <input className="input" type="text" placeholder="claude-opus-4-20250514" value={p.advisorModel} onChange={(e) => updateProvider(p.id, 'advisorModel', e.target.value)} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                    <button
+                      className="btn"
+                      onClick={() => testProvider(p)}
+                      disabled={testingId === p.id || !p.baseUrl || !p.apiKey || !p.model}
+                    >
+                      {testingId === p.id ? <Loader2 size={12} className="spin" /> : <Wifi size={12} />}
+                      {testingId === p.id ? t('provider.testing') || 'Testing...' : t('provider.testApi') || 'Test API'}
+                    </button>
+                    {testResult[p.id] && (
+                      <span style={{ fontSize: 12, color: testResult[p.id].ok ? 'var(--green)' : 'var(--red)' }}>
+                        {testResult[p.id].ok ? '✅ ' : '❌ '}{testResult[p.id].msg}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

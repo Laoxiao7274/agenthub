@@ -59,6 +59,40 @@ export interface AgentStatus {
   version: string;
 }
 
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+export interface AiChatRequest {
+  base_url: string;
+  api_key: string;
+  model: string;
+  messages: ChatMessage[];
+  system?: string;
+  lang?: string;
+}
+
+export interface AiAnalyzeRequest {
+  project_path: string;
+  base_url: string;
+  api_key: string;
+  model: string;
+  target: string;
+  lang?: string;
+}
+
+export interface AiUpdateRequest {
+  project_path: string;
+  base_url: string;
+  api_key: string;
+  model: string;
+  target: string;
+  user_request: string;
+  current_content: string;
+  lang?: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const invoke = (cmd: string, args?: Record<string, any>) =>
   (window as any).__TAURI_INTERNALS__.invoke(cmd, args);
@@ -127,4 +161,32 @@ export const tauri = {
   /** Ensure a folder exists (create if needed) */
   ensureFolder: (path: string): Promise<string> =>
     invoke("ensure_folder", { path }),
+
+  /** Open folder in system file explorer */
+  openFolder: (path: string): Promise<string> =>
+    invoke("open_folder", { path }),
+
+  /** Initialize agent: run /init then /self-improving-agent */
+  initAgent: (projectPath: string): Promise<string> =>
+    invoke("init_agent", { projectPath }),
+
+  /** Test API connectivity */
+  testApi: (baseUrl: string, apiKey: string, model: string): Promise<string> =>
+    invoke("test_api", { baseUrl, apiKey, model }),
+
+  /** AI chat (multi-turn conversation) */
+  aiChat: (req: AiChatRequest): Promise<{ reply: string }> =>
+    invoke("ai_chat", { req }),
+
+  /** AI analyze project (generate CLAUDE.md / skills summary / overview) */
+  aiAnalyze: (req: AiAnalyzeRequest): Promise<{ result: string; target: string }> =>
+    invoke("ai_analyze", { req }),
+
+  /** AI update (user describes change, AI designs updated content) */
+  aiUpdate: (req: AiUpdateRequest): Promise<{ result: string; target: string }> =>
+    invoke("ai_update", { req }),
+
+  /** AI apply (write AI-generated content to disk after user confirms) */
+  aiApply: (projectPath: string, target: string, content: string): Promise<string> =>
+    invoke("ai_apply", { projectPath, target, content }),
 };

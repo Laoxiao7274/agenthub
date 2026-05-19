@@ -18,6 +18,10 @@ const translations: Record<string, string> = {
     "projects.creating": "正在创建项目...",
     "projects.creatingDesc": "正在下载技能包并初始化...",
     "projects.initializing": "初始化中...",
+    "projects.openFolder": "打开文件夹",
+    "projects.runInit": "运行 /init",
+    "projects.initAgent": "初始化 Agent",
+    "projects.initAgentRunning": "初始化中...",
     "projects.empty": "暂无项目",
 
     // Tabs
@@ -27,6 +31,7 @@ const translations: Record<string, string> = {
     "tab.claudeMd": "CLAUDE.md",
     "tab.permissions": "权限",
     "tab.hooks": "钩子",
+    "tab.ai": "AI 助手",
 
     // Provider
     "provider.title": "服务商",
@@ -43,6 +48,8 @@ const translations: Record<string, string> = {
     "provider.switch": "切换",
     "provider.addCustom": "添加自定义服务商",
     "provider.cancel": "取消",
+    "provider.testApi": "测试连接",
+    "provider.testing": "测试中...",
 
     // MCP
     "mcp.title": "MCP 服务器",
@@ -61,9 +68,8 @@ const translations: Record<string, string> = {
     "skills.namePlaceholder": "技能名称",
     "skills.prompt": "系统提示",
     "skills.promptPlaceholder": "描述此技能的行为...",
-    "skills.model": "模型",
-    "skills.modelPlaceholder": "留空则使用项目默认模型",
-    "skills.tools": "可用工具",
+    "skills.done": "完成",
+    "skills.noPrompt": "未填写提示",
 
     // CLAUDE.md
     "claudeMd.title": "CLAUDE.md",
@@ -136,7 +142,7 @@ const translations: Record<string, string> = {
     "agent.comingSoon": "即将支持",
     "agent.tab": "Agent",
     "agent.saveConfig": "保存配置",
-
+    "agent.startAgent": "启动",
     // Confirm dialog
     "confirm.title": "确认删除",
     "confirm.cancel": "取消",
@@ -153,6 +159,30 @@ const translations: Record<string, string> = {
     "lang.en": "English",
     "lang.ja": "日本語",
     "lang.ko": "한국어",
+
+    // AI Assistant
+    "ai.title": "AI 助手",
+    "ai.noProvider": "请先配置服务商",
+    "ai.analyze": "分析",
+    "ai.analyzeClaudeMd": "生成 CLAUDE.md",
+    "ai.analyzeSkills": "总结技能",
+    "ai.analyzeOverview": "项目概览",
+    "ai.analyzing": "分析中...",
+    "ai.update": "AI 更新",
+    "ai.updateClaudeMd": "更新 CLAUDE.md",
+    "ai.updateSkill": "创建/更新技能",
+    "ai.updatePlaceholder": "描述你想要修改的内容...",
+    "ai.updating": "生成中...",
+    "ai.apply": "应用",
+    "ai.applying": "应用中...",
+    "ai.preview": "预览",
+    "ai.cancel": "取消",
+    "ai.chatPlaceholder": "关于这个项目提问任何问题...",
+    "ai.send": "发送",
+    "ai.thinking": "思考中...",
+    "ai.confirmApply": "确认将此修改写入磁盘？",
+    "ai.applied": "修改已应用",
+    "ai.applyFailed": "应用失败",
 }
 
 export default translations

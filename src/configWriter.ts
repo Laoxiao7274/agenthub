@@ -1,4 +1,4 @@
-import type { Provider, ProjectConfig, McpServer, AgentSkill } from './types'
+import type { Provider, ProjectConfig } from './types'
 import { tauri } from './tauri'
 
 export interface WriteConfigInput {

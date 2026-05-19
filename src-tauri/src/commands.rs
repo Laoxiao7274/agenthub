@@ -24,18 +24,17 @@ pub fn ensure_folder(path: String) -> Result<String, String> {
 }
 
 /// Download a single skill from skillhub into the project's .claude/skills/ directory.
+/// Copies the entire skill directory (SKILL.md + references/ templates/ scripts/ etc.)
 fn download_skill(claude_dir: &std::path::Path, slug: &str, step: &mut InitStep) {
     let skills_dir = claude_dir.join(format!("skills/{}", slug));
-    let skill_md = skills_dir.join("SKILL.md");
 
-    if skill_md.exists() {
+    if skills_dir.join("SKILL.md").exists() {
         step.status = "skipped".into();
         step.message = format!("{} already exists", slug);
         return;
     }
 
     step.status = "running".into();
-    let _ = fs::create_dir_all(&skills_dir);
     let tmp_zip = claude_dir.join(format!("{}-{}.zip", slug, std::process::id()));
     let tmp_dir = claude_dir.join(format!("{}-tmp-{}", slug, std::process::id()));
 
@@ -70,19 +69,16 @@ fn download_skill(claude_dir: &std::path::Path, slug: &str, step: &mut InitStep)
         let mut found = false;
         if let Ok(ext_out) = extract_output {
             if ext_out.status.success() {
-                if let Ok(entries) = fs::read_dir(&tmp_dir) {
+                // Check if the extracted root itself contains SKILL.md
+                if tmp_dir.join("SKILL.md").exists() {
+                    // Copy entire extracted directory tree to skills_dir
+                    found = copy_dir_recursive(&tmp_dir, &skills_dir);
+                } else if let Ok(entries) = fs::read_dir(&tmp_dir) {
+                    // Look for a subdirectory containing SKILL.md
                     for entry in entries.flatten() {
                         let path = entry.path();
-                        if path.is_dir() {
-                            let src = path.join("SKILL.md");
-                            if src.exists() {
-                                let _ = fs::copy(&src, &skill_md);
-                                found = true;
-                                break;
-                            }
-                        } else if path.file_name() == Some(std::ffi::OsStr::new("SKILL.md")) {
-                            let _ = fs::copy(&path, &skill_md);
-                            found = true;
+                        if path.is_dir() && path.join("SKILL.md").exists() {
+                            found = copy_dir_recursive(&path, &skills_dir);
                             break;
                         }
                     }
@@ -106,6 +102,29 @@ fn download_skill(claude_dir: &std::path::Path, slug: &str, step: &mut InitStep)
     let _ = fs::remove_dir_all(&tmp_dir);
 }
 
+/// Recursively copy a directory tree from src to dst.
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> bool {
+    if fs::create_dir_all(dst).is_err() {
+        return false;
+    }
+    if let Ok(entries) = fs::read_dir(src) {
+        for entry in entries.flatten() {
+            let src_path = entry.path();
+            let dst_path = dst.join(src_path.file_name().unwrap_or_default());
+            if src_path.is_dir() {
+                if !copy_dir_recursive(&src_path, &dst_path) {
+                    return false;
+                }
+            } else if fs::copy(&src_path, &dst_path).is_err() {
+                return false;
+            }
+        }
+        true
+    } else {
+        false
+    }
+}
+
 const DEFAULT_SKILLS: &[&str] = &["find-skills", "self-improving-agent"];
 
 #[tauri::command]
@@ -125,7 +144,8 @@ pub async fn init_project(project_path: String) -> Result<Vec<InitStep>, String>
         let result: Result<Vec<InitStep>, String> = std::thread::spawn(move || {
             let mut steps = steps;
             for step in steps.iter_mut() {
-                download_skill(&claude_dir, &step.step, step);
+                let slug = step.step.clone();
+                download_skill(&claude_dir, &slug, step);
             }
             Ok(steps)
         })
@@ -152,6 +172,94 @@ pub fn check_skillhub_installed() -> Result<bool, String> {
 }
 
 // ========== Misc Commands ==========
+
+#[tauri::command]
+pub async fn test_api(base_url: String, api_key: String, model: String) -> Result<String, String> {
+    if base_url.is_empty() || api_key.is_empty() || model.is_empty() {
+        return Err("Base URL, API Key and Model are required".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+        let body = format!(
+            r#"{{"model":"{}","messages":[{{"role":"user","content":"hi"}}],"max_tokens":5}}"#,
+            model
+        );
+        let output = std::process::Command::new("powershell.exe")
+            .args([
+                "-Command",
+                &format!(
+                    "try {{ $r = Invoke-RestMethod -Uri '{}' -Method Post -Headers @{{'Authorization'='Bearer {}';'Content-Type'='application/json'}} -Body '{}' -TimeoutSec 15; $r.choices[0].message.content }} catch {{ Write-Error $_.Exception.Message; exit 1 }}",
+                    url, api_key, body
+                ),
+            ])
+            .output()
+            .map_err(|e| format!("PowerShell failed: {}", e))?;
+
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            Ok(if stdout.is_empty() { "API connected (empty response)".into() } else { stdout })
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            Err(if stderr.is_empty() { "API test failed".into() } else { stderr })
+        }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+pub async fn init_agent(project_path: String) -> Result<String, String> {
+    let path = PathBuf::from(&project_path);
+    if !path.exists() {
+        return Err(format!("Project path does not exist: {}", path.display()));
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        // Step 1: /init
+        let init_out = std::process::Command::new("claude")
+            .args(["-p", "/init", "--dangerously-skip-permissions"])
+            .current_dir(&path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run claude /init: {}. Is Claude Code installed?", e))?;
+        if !init_out.status.success() {
+            let stderr = String::from_utf8_lossy(&init_out.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&init_out.stdout).trim().to_string();
+            let msg = if !stderr.is_empty() { &stderr } else { &stdout };
+            return Err(format!("claude /init failed: {}", msg));
+        }
+
+        // Step 2: /self-improving-agent
+        let sia_out = std::process::Command::new("claude")
+            .args(["-p", "/self-improving-agent", "--dangerously-skip-permissions"])
+            .current_dir(&path)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("Failed to run claude /self-improving-agent: {}", e))?;
+        if !sia_out.status.success() {
+            let stderr = String::from_utf8_lossy(&sia_out.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&sia_out.stdout).trim().to_string();
+            let msg = if !stderr.is_empty() { &stderr } else { &stdout };
+            return Err(format!("claude /self-improving-agent failed: {}", msg));
+        }
+
+        Ok("Agent initialized".into())
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+#[tauri::command]
+pub fn open_folder(path: String) -> Result<String, String> {
+    let path = PathBuf::from(&path);
+    if !path.exists() {
+        return Err(format!("Path does not exist: {}", path.display()));
+    }
+    std::process::Command::new("explorer.exe")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| format!("Failed to open folder: {}", e))?;
+    Ok(format!("Opened {}", path.display()))
+}
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {

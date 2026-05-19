@@ -2,7 +2,7 @@ import { FileText, Shield, Webhook } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { ProjectConfig } from '../types'
 
-export function ClaudeMdSection({ config, onChange }: {
+export function ClaudeMdSection({ config }: {
   config: ProjectConfig
   onChange: (c: ProjectConfig) => void
 }) {
@@ -13,12 +13,13 @@ export function ClaudeMdSection({ config, onChange }: {
         <div className="section-title"><FileText size={17} className="section-icon" /> {t('claudeMd.title')}</div>
       </div>
       <div className="section-subtitle">{t('claudeMd.subtitle')}</div>
-      <textarea
-        className="textarea"
-        value={config.claudeMd}
-        onChange={(e) => onChange({ ...config, claudeMd: e.target.value })}
-        placeholder={t('claudeMd.placeholder')}
-      />
+      {config.claudeMd ? (
+        <div className="skill-prompt-view">
+          <pre className="skill-prompt-content" style={{ maxHeight: 400 }}>{config.claudeMd}</pre>
+        </div>
+      ) : (
+        <div className="mcsm-empty" style={{ padding: 16 }}>{t('claudeMd.placeholder')}</div>
+      )}
     </div>
   )
 }

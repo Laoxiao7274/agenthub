@@ -1,10 +1,11 @@
-import { FileText, Shield, Webhook } from 'lucide-react'
+import { Shield, Webhook } from 'lucide-react'
 import { useI18n } from '../i18n'
-import type { ProjectConfig, DetailTab, AgentType } from '../types'
+import type { ProjectConfig, DetailTab, Provider, Project } from '../types'
 import { AgentSection } from './AgentSection'
 import { ProviderSection } from './ProviderSection'
 import { McpSection } from './McpSection'
 import { SkillsSection } from './SkillsSection'
+import { ClaudeMdSection } from './ProjectDetailTabs'
 
 export function ProjectDetailContent({
   activeConfig,
@@ -13,13 +14,17 @@ export function ProjectDetailContent({
   providers,
   handleProvidersChange,
   confirmThen,
+  activeProject,
+  showToast,
 }: {
   activeConfig: ProjectConfig
   detailTab: DetailTab
   updateConfig: (c: ProjectConfig) => void
-  providers: import('../types').Provider[]
-  handleProvidersChange: (p: import('../types').Provider[]) => void
+  providers: Provider[]
+  handleProvidersChange: (p: Provider[]) => void
   confirmThen: (msg: string, fn: () => void) => void
+  activeProject: Project | null | undefined
+  showToast: (msg: string) => void
 }) {
   const { t } = useI18n()
 
@@ -38,16 +43,19 @@ export function ProjectDetailContent({
         />
       )}
       {detailTab === 'mcp' && <McpSection config={activeConfig} onChange={updateConfig} confirmThen={confirmThen} />}
-      {detailTab === 'skills' && <SkillsSection config={activeConfig} onChange={updateConfig} confirmThen={confirmThen} />}
+      {detailTab === 'skills' && (
+        <SkillsSection
+          config={activeConfig}
+          onChange={updateConfig}
+          confirmThen={confirmThen}
+          providers={providers}
+          activeProject={activeProject}
+          showToast={showToast}
+        />
+      )}
 
       {detailTab === 'claudeMd' && (
-        <div className="section">
-          <div className="section-header">
-            <div className="section-title"><FileText size={17} className="section-icon" /> {t('claudeMd.title')}</div>
-          </div>
-          <div className="section-subtitle">{t('claudeMd.subtitle')}</div>
-          <textarea className="textarea" value={activeConfig.claudeMd} onChange={(e) => updateConfig({ ...activeConfig, claudeMd: e.target.value })} placeholder={t('claudeMd.placeholder')} />
-        </div>
+        <ClaudeMdSection config={activeConfig} onChange={updateConfig} />
       )}
 
       {detailTab === 'permissions' && (

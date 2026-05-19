@@ -142,10 +142,14 @@ fn write_local_settings(claude_dir: &PathBuf, config: &ProjectConfigInput) -> Re
 }
 
 fn write_claude_md(project_path: &PathBuf, content: &str) -> Result<(), String> {
+    let path = project_path.join("CLAUDE.md");
     if content.is_empty() {
+        // Remove CLAUDE.md if exists and content is empty
+        if path.exists() {
+            let _ = fs::remove_file(&path);
+        }
         return Ok(());
     }
-    let path = project_path.join("CLAUDE.md");
     fs::write(&path, content).map_err(|e| format!("Write CLAUDE.md: {}", e))?;
     Ok(())
 }
