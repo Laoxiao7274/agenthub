@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   FolderKanban, Key, Plug, Users, Play, Plus, Box, Settings,
-  Trash2, Save, Loader2, FileText, Shield, Webhook, Cpu,
+  Trash2, Save, Loader2, FileText, Shield, Webhook, Cpu, Brain,
+  ChevronDown, MessageSquare, BookOpen, Database,
 } from 'lucide-react'
 import { I18nContext, createI18n } from './i18n'
 import type { Lang } from './i18n'
@@ -13,10 +14,14 @@ import { ProviderSection } from './components/ProviderSection'
 import { McpSection } from './components/McpSection'
 import { SkillsSection } from './components/SkillsSection'
 import { ClaudeMdSection, PermissionsSection, HooksSection } from './components/ProjectDetailTabs'
+import { MemorySection } from './components/MemorySection'
+import { MemoryPage } from './components/MemoryPage'
+import { AnythingLLMSection } from './components/AnythingLLMSection'
 import { SettingsPage } from './components/SettingsPage'
 import { AddProjectModal } from './components/AddProjectModal'
 import { useAppStore } from './hooks/useAppStore'
 import { tauri } from './tauri'
+import type { ClaudeSession } from './tauri'
 
 const DETAIL_TABS: { key: DetailTab, icon: React.ReactNode, agents?: AgentType[] }[] = [
   { key: 'agent', icon: <Cpu size={13} /> },
@@ -26,6 +31,8 @@ const DETAIL_TABS: { key: DetailTab, icon: React.ReactNode, agents?: AgentType[]
   { key: 'claudeMd', icon: <FileText size={13} />, agents: ['claude-code', 'codex', 'gemini-cli'] },
   { key: 'permissions', icon: <Shield size={13} />, agents: ['claude-code', 'codex'] },
   { key: 'hooks', icon: <Webhook size={13} />, agents: ['claude-code'] },
+  { key: 'memory', icon: <Brain size={13} />, agents: ['claude-code'] },
+  { key: 'knowledge', icon: <BookOpen size={13} />, agents: ['claude-code'] },
 ]
 
 // Tab label keys mapping
@@ -37,6 +44,8 @@ const TAB_LABEL_KEYS: Record<DetailTab, string> = {
   claudeMd: 'tab.claudeMd',
   permissions: 'tab.permissions',
   hooks: 'tab.hooks',
+  memory: 'tab.memory',
+  knowledge: 'tab.knowledge',
 }
 
 export default function App() {
@@ -73,6 +82,20 @@ export default function App() {
               </div>
             )}
 
+            <button
+              className={`nav-item ${store.page === 'memory' ? 'active' : ''}`}
+              onClick={() => { store.setPage('memory'); store.setActiveProjectId(null); }}
+            >
+              <Brain size={17} className="nav-icon" /> {t('nav.memory')}
+            </button>
+
+            <button
+              className={`nav-item ${store.page === 'wiki' ? 'active' : ''}`}
+              onClick={() => { store.setPage('wiki'); store.setActiveProjectId(null); }}
+            >
+              <Database size={17} className="nav-icon" /> {t('nav.wiki')}
+            </button>
+
             <div style={{ flex: 1 }} />
             <button
               className={`nav-item ${store.page === 'settings' ? 'active' : ''}`}
@@ -100,7 +123,7 @@ export default function App() {
       {store.showAddProject && (
         <AddProjectModal
           onClose={() => store.setShowAddProject(false)}
-          onAdd={(name, path) => { store.addProject(name, path); store.setShowAddProject(false); }}
+          onAdd={(name, path, isExisting, initSkills) => { store.addProject(name, path, isExisting, initSkills); store.setShowAddProject(false); }}
         />
       )}
       {store.toast && <div className="toast">{store.toast}</div>}
@@ -122,6 +145,7 @@ function TopBar({ t, store }: { t: (k: string, params?: Record<string, string>) 
       <div className="top-bar-title">
         {store.page === 'projects' && !store.activeProjectId && <><FolderKanban size={15} /> {t('projects.title')}</>}
         {store.page === 'settings' && <><Settings size={15} /> {t('settings.title')}</>}
+        {store.page === 'memory' && <><Brain size={15} /> {t('nav.memory')}</>}
         {store.page === 'project-detail' && store.activeProject && (
           <><Box size={15} /> {store.activeProject.name}</>
         )}
@@ -161,15 +185,86 @@ function TopBar({ t, store }: { t: (k: string, params?: Record<string, string>) 
             {store.saving ? <Loader2 size={12} className="spin" /> : <Save size={12} />}
             {t('agent.saveConfig') || 'Save'}
           </button>
-          <button
-            className="btn btn-primary"
-            onClick={store.startAgent}
-            disabled={store.agentBusy || store.initRunning || !store.activeConfig?.providerId}
-            title={t('agent.startAgent') || 'Start agent'}
-          >
-            {store.agentBusy ? <Loader2 size={12} className="spin" /> : <Play size={12} />}
-            {t('agent.startAgent') || 'Start'}
+          <StartButton t={t} store={store} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StartButton({ t, store }: { t: (k: string, params?: Record<string, string>) => string; store: ReturnType<typeof useAppStore> }) {
+  const [open, setOpen] = useState(false)
+  const [sessions, setSessions] = useState<ClaudeSession[]>([])
+  const [loading, setLoading] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  const handleOpen = () => {
+    setOpen(!open)
+    if (!open && store.activeProject) {
+      setLoading(true)
+      tauri.listClaudeSessions(store.activeProject.path).then(setSessions).catch(() => setSessions([]))
+      .finally(() => setLoading(false))
+    }
+  }
+
+  const handleNewSession = () => {
+    setOpen(false)
+    store.startAgent()
+  }
+
+  const handleResume = (sessionId: string) => {
+    setOpen(false)
+    if (!store.activeProject) return
+    tauri.resumeClaudeSession(store.activeProject.path, sessionId, store.activeConfig?.model || '', '')
+      .then(() => store.showToast(`🚀 ${t('memory.sessionResumed')}`))
+      .catch((e: any) => store.showToast(`❌ ${e?.toString() || 'Resume failed'}`))
+  }
+
+  const formatTime = (ts: string) => {
+    if (!ts) return ''
+    try { return new Date(ts).toLocaleString() } catch { return ts }
+  }
+
+  const disabled = store.agentBusy || store.initRunning || !store.activeConfig?.providerId
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        className="btn btn-primary"
+        onClick={handleOpen}
+        disabled={disabled}
+        title={t('agent.startAgent') || 'Start agent'}
+      >
+        {store.agentBusy ? <Loader2 size={12} className="spin" /> : <Play size={12} />}
+        {t('agent.startAgent') || 'Start'} <ChevronDown size={11} />
+      </button>
+      {open && (
+        <div className="start-dropdown">
+          <button className="start-dropdown-item start-new" onClick={handleNewSession}>
+            <Play size={13} /> {t('memory.newSession')}
           </button>
+          {sessions.length > 0 && (
+            <div className="start-dropdown-divider" />
+          )}
+          <div className="start-dropdown-section">
+            {loading && <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)' }}><Loader2 size={11} className="spin" /></div>}
+            {sessions.slice(0, 8).map((s) => (
+              <button key={s.id} className="start-dropdown-item" onClick={() => handleResume(s.id)}>
+                <MessageSquare size={12} style={{ flexShrink: 0 }} />
+                <span className="start-dropdown-item-text">{s.firstMessage || t('memory.noFirstMessage')}</span>
+                <span className="start-dropdown-item-time">{formatTime(s.timestamp)}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -197,6 +292,8 @@ function TabBar({ t, store }: { t: (k: string, params?: Record<string, string>) 
 
 function PageContent({ t, store }: { t: (k: string, params?: Record<string, string>) => string; store: ReturnType<typeof useAppStore> }) {
   if (store.page === 'settings') return <SettingsPage />
+  if (store.page === 'memory') return <MemoryPage projects={store.projects} />
+  if (store.page === 'wiki') return <AnythingLLMSection />
 
   if (store.page === 'projects' && !store.activeProjectId) {
     return (
@@ -322,13 +419,25 @@ function PageContent({ t, store }: { t: (k: string, params?: Record<string, stri
           />
         )}
         {store.detailTab === 'claudeMd' && (
-          <ClaudeMdSection config={store.activeConfig} onChange={store.updateConfig} />
+          <ClaudeMdSection
+            config={store.activeConfig}
+            onChange={store.updateConfig}
+            providers={store.providers}
+            activeProject={store.activeProject}
+            showToast={store.showToast}
+          />
         )}
         {store.detailTab === 'permissions' && (
           <PermissionsSection config={store.activeConfig} onChange={store.updateConfig} />
         )}
         {store.detailTab === 'hooks' && (
           <HooksSection config={store.activeConfig} onChange={store.updateConfig} />
+        )}
+        {store.detailTab === 'memory' && (
+          <MemorySection activeProject={store.activeProject} />
+        )}
+        {store.detailTab === 'knowledge' && (
+          <AnythingLLMSection />
         )}
       </>
     )

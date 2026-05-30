@@ -2,6 +2,7 @@ export interface Project {
   id: string
   name: string
   path: string
+  launchPath: string
   initial: string
   lastUsed: string
   running: boolean
@@ -44,6 +45,7 @@ export interface ProjectConfig {
   smallModel: string
   advisorModel: string
   claudeMd: string
+  claudeMdSummary?: string
   permissionMode: string
   mcpServers: McpServer[]
   skills: AgentSkill[]
@@ -70,8 +72,8 @@ export interface CcSwitchProvider {
   api_format: string | null
 }
 
-export type Page = 'projects' | 'project-detail' | 'settings'
-export type DetailTab = 'agent' | 'provider' | 'mcp' | 'skills' | 'claudeMd' | 'permissions' | 'hooks'
+export type Page = 'projects' | 'project-detail' | 'settings' | 'memory' | 'wiki'
+export type DetailTab = 'agent' | 'provider' | 'mcp' | 'skills' | 'claudeMd' | 'permissions' | 'hooks' | 'memory' | 'knowledge'
 export type AgentType = 'claude-code' | 'codex' | 'gemini-cli' | 'opencode' | 'hermes'
 
 export const AGENT_TYPES: { value: AgentType, label: string, color: string, disabled: boolean, icon: string }[] = [
@@ -109,9 +111,9 @@ export const DEFAULT_PROVIDERS: Provider[] = [
 ]
 
 export const MOCK_PROJECTS: Project[] = [
-  { id: 'p1', name: 'MYT Client', path: 'C:\\Users\\xzy\\Desktop\\gs\\pc-client\\MYT', initial: 'M', lastUsed: '2m ago', running: true },
-  { id: 'p2', name: 'AgentHub', path: 'C:\\Users\\xzy\\Desktop\\my\\AgentHub', initial: 'A', lastUsed: 'Just now', running: false },
-  { id: 'p3', name: 'Blog', path: 'C:\\Users\\xzy\\Desktop\\my\\blog', initial: 'B', lastUsed: '3d ago', running: false },
+  { id: 'p1', name: 'MYT Client', path: 'C:\\Users\\xzy\\Desktop\\gs\\pc-client\\MYT', launchPath: 'C:\\Users\\xzy\\Desktop\\gs\\pc-client\\MYT', initial: 'M', lastUsed: '2m ago', running: true },
+  { id: 'p2', name: 'AgentHub', path: 'C:\\Users\\xzy\\Desktop\\my\\AgentHub', launchPath: 'C:\\Users\\xzy\\Desktop\\my\\AgentHub', initial: 'A', lastUsed: 'Just now', running: false },
+  { id: 'p3', name: 'Blog', path: 'C:\\Users\\xzy\\Desktop\\my\\blog', launchPath: 'C:\\Users\\xzy\\Desktop\\my\\blog', initial: 'B', lastUsed: '3d ago', running: false },
 ]
 
 export const MOCK_CONFIGS: Record<string, ProjectConfig> = {
@@ -142,6 +144,75 @@ export const MOCK_CONFIGS: Record<string, ProjectConfig> = {
 export const STORAGE_KEY_PROVIDERS = 'agenthub_providers'
 export const STORAGE_KEY_CONFIGS = 'agenthub_configs'
 export const STORAGE_KEY_PROJECTS = 'agenthub_projects'
+
+export interface ServerConfig {
+  qdrantUrl: string
+  qdrantApiKey: string
+  qdrantCollection: string
+  anythingLLMUrl: string
+  anythingLLMApiKey: string
+}
+
+export const DEFAULT_SERVER_CONFIG: ServerConfig = {
+  qdrantUrl: 'http://123.206.232.240:6333',
+  qdrantApiKey: 'a85676058',
+  qdrantCollection: 'mem0',
+  anythingLLMUrl: 'http://123.206.232.240:3003',
+  anythingLLMApiKey: '',
+}
+
+export const STORAGE_KEY_SERVER_CONFIG = 'agenthub_server_config'
+
+export interface QdrantCollectionInfo {
+  name: string
+  vectorCount: number
+  dimension: number
+  status: string
+}
+
+export interface QdrantPoint {
+  id: string
+  payload: Record<string, any>
+  score?: number
+}
+
+export interface WikiProject {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface WikiFile {
+  name: string
+  path: string
+  isDir: boolean
+  children?: WikiFile[]
+}
+
+export interface WikiSearchResult {
+  title: string
+  path: string
+  snippet: string
+  score: number
+  mode: string
+}
+
+export interface WikiGraphNode {
+  id: string
+  label: string
+  nodeType: string
+}
+
+export interface WikiGraphEdge {
+  source: string
+  target: string
+  label: string
+}
+
+export interface WikiGraph {
+  nodes: WikiGraphNode[]
+  edges: WikiGraphEdge[]
+}
 
 export function loadFromStorage<T>(key: string, fallback: T): T {
   try {

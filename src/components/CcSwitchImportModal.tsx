@@ -60,7 +60,7 @@ export function CcSwitchImportModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
         <div className="modal-header">
           <div className="modal-title"><Download size={17} /> {t('ccswitch.title')}</div>

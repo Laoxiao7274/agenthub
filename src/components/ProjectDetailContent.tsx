@@ -55,7 +55,13 @@ export function ProjectDetailContent({
       )}
 
       {detailTab === 'claudeMd' && (
-        <ClaudeMdSection config={activeConfig} onChange={updateConfig} />
+        <ClaudeMdSection
+          config={activeConfig}
+          onChange={updateConfig}
+          providers={providers}
+          activeProject={activeProject}
+          showToast={showToast}
+        />
       )}
 
       {detailTab === 'permissions' && (

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { tauri } from '../tauri'
-import type { Project, Provider, ProjectConfig, Page, DetailTab } from '../types'
+import type { Project, Provider, ProjectConfig, Page, DetailTab, ServerConfig } from '../types'
 import {
   DEFAULT_PROVIDERS, MOCK_PROJECTS, MOCK_CONFIGS,
   STORAGE_KEY_PROVIDERS, STORAGE_KEY_CONFIGS, STORAGE_KEY_PROJECTS,
+  STORAGE_KEY_SERVER_CONFIG, DEFAULT_SERVER_CONFIG,
   loadFromStorage, saveToStorage,
 } from '../types'
 import { buildConfigInput, writeConfigSilent } from '../lib/project-config'
@@ -33,9 +34,45 @@ export function useAppStore() {
   const [agentBusy, setAgentBusy] = useState(false)
   const [initRunning, setInitRunning] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmState | null>(null)
+  const [serverConfig, setServerConfig] = useState<ServerConfig>(() =>
+    loadFromStorage(STORAGE_KEY_SERVER_CONFIG, DEFAULT_SERVER_CONFIG),
+  )
 
   const activeProject = projects.find((p) => p.id === activeProjectId)
   const activeConfig = activeProjectId ? configs[activeProjectId] : null
+
+  // Migrate existing projects: fix paths, ensure launchPath
+  useEffect(() => {
+    const FOLDER_RENAMES: Record<string, string> = {
+      'agent编辑大师': 'agent-editor',
+      '实施助手': 'impl-assistant',
+    }
+
+    const migrate = async () => {
+      let changed = false
+      const updated = await Promise.all(projects.map(async (p) => {
+        let newPath = p.path
+        // Check if path was renamed
+        for (const [zh, en] of Object.entries(FOLDER_RENAMES)) {
+          if (newPath.includes(zh)) {
+            newPath = newPath.replace(zh, en)
+            changed = true
+            break
+          }
+        }
+        // Ensure launchPath
+        const needsLink = !p.launchPath || (/[^\x00-\x7f]/.test(newPath) && !p.launchPath.includes('agenthub-'))
+        const launchPath = needsLink ? await tauri.ensureProjectLink(newPath).catch(() => newPath) : p.launchPath
+        if (newPath !== p.path || launchPath !== p.launchPath) changed = true
+        return { ...p, path: newPath, launchPath: launchPath || newPath }
+      }))
+      if (changed) {
+        setProjects(updated)
+        saveToStorage(STORAGE_KEY_PROJECTS, updated)
+      }
+    }
+    migrate()
+  }, [])
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -52,7 +89,7 @@ export function useAppStore() {
     setSaving(true)
     try {
       await tauri.writeProjectConfig(
-        buildConfigInput(activeProject.path, activeConfig, providers),
+        buildConfigInput(activeProject.launchPath, activeConfig, providers),
       )
       showToast('✅ Config saved')
     } catch (e: any) {
@@ -69,7 +106,7 @@ export function useAppStore() {
     try {
       const provider = providers.find((p) => p.id === activeConfig.providerId)
       const pid = await tauri.startAgent(
-        activeProject.path,
+        activeProject.launchPath,
         activeConfig.agentType,
         activeConfig.model,
         activeConfig.smallModel,
@@ -98,7 +135,7 @@ export function useAppStore() {
     }
     setInitRunning(true)
     try {
-      await tauri.initAgent(activeProject.path)
+      await tauri.initAgent(activeProject.launchPath)
       showToast('✅ Agent initialized')
     } catch (e: any) {
       showToast('❌ ' + (e?.toString() || 'Init failed'))
@@ -113,7 +150,7 @@ export function useAppStore() {
     if (!activeProject) return
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
-      await writeConfigSilent(activeProject.path, config, providers)
+      await writeConfigSilent(activeProject.launchPath, config, providers)
     }, 800)
   }
 
@@ -135,16 +172,17 @@ export function useAppStore() {
     }
   }
 
-  const addProject = async (name: string, path: string) => {
+  const addProject = async (name: string, path: string, isExisting: boolean = false, initSkills: boolean = false) => {
     const id = `p-${Date.now()}`
     const initial = name.charAt(0).toUpperCase()
-    const newProject: Project = { id, name, path, initial, lastUsed: 'Just now', running: false, initializing: true }
+    // Create junction for non-ASCII paths so Claude Code gets unique project directories
+    const launchPath = await tauri.ensureProjectLink(path).catch(() => path)
+    const newProject: Project = { id, name, path, launchPath, initial, lastUsed: 'Just now', running: false, initializing: true }
     const newConfig: ProjectConfig = {
       agentType: 'claude-code', providerId: '', model: '', smallModel: '', advisorModel: '',
       claudeMd: '', permissionMode: 'default', mcpServers: [], skills: [],
       hooks: { preToolUse: '', postToolUse: '', notification: '', stop: '' },
     }
-    // Add project to UI immediately (with initializing flag)
     setProjects((prev) => {
       const next = [...prev, newProject]
       saveToStorage(STORAGE_KEY_PROJECTS, next)
@@ -155,23 +193,37 @@ export function useAppStore() {
       saveToStorage(STORAGE_KEY_CONFIGS, next)
       return next
     })
-    // Run init in background (download skills)
-    try {
-      await tauri.ensureFolder(path)
-      await writeConfigSilent(path, newConfig, providers)
-      await tauri.initProject(path)
-      showToast('✅ Project ready')
-    } catch {
-      showToast('⚠️ Project init partially failed')
-    } finally {
-      // Mark as initialized
-      setProjects((prev) => {
-        const next = prev.map((p) => p.id === id ? { ...p, initializing: false } : p)
-        saveToStorage(STORAGE_KEY_PROJECTS, next)
-        return next
-      })
+    if (isExisting && !initSkills) {
+      // Open existing folder: only write config, no init
+      try {
+        await writeConfigSilent(path, newConfig, providers)
+        showToast('✅ Project ready')
+      } catch {
+        showToast('⚠️ Failed to write config')
+      } finally {
+        setProjects((prev) => {
+          const next = prev.map((p) => p.id === id ? { ...p, initializing: false } : p)
+          saveToStorage(STORAGE_KEY_PROJECTS, next)
+          return next
+        })
+      }
+    } else {
+      // New project or existing with init: create folder + init (download skills)
+      try {
+        if (!isExisting) await tauri.ensureFolder(path)
+        await writeConfigSilent(path, newConfig, providers)
+        await tauri.initProject(path)
+        showToast('✅ Project ready')
+      } catch {
+        showToast('⚠️ Project init partially failed')
+      } finally {
+        setProjects((prev) => {
+          const next = prev.map((p) => p.id === id ? { ...p, initializing: false } : p)
+          saveToStorage(STORAGE_KEY_PROJECTS, next)
+          return next
+        })
+      }
     }
-    // Open project detail
     setActiveProjectId(id)
     setPage('project-detail')
     setDetailTab('provider')
@@ -206,7 +258,7 @@ export function useAppStore() {
     setDetailTab('agent')
     // Read config from disk and merge into state
     try {
-      const disk = await tauri.readProjectConfig(project.path)
+      const disk = await tauri.readProjectConfig(project.launchPath)
       const existing = configs[id]
       if (!existing) return
       let updated = { ...existing }
@@ -242,6 +294,22 @@ export function useAppStore() {
         }))
         if (servers.length > 0) updated.mcpServers = servers
       }
+      // MCP servers from .mcp.json / .claude/mcp.json (project-level)
+      if (disk.mcpConfig?.mcpServers) {
+        const mcpObj = disk.mcpConfig.mcpServers as Record<string, any>
+        const servers = Object.entries(mcpObj).map(([name, val]: [string, any]) => ({
+          id: `mcp-${name}`,
+          name,
+          command: val.command || '',
+          args: (val.args || []).join(' '),
+          enabled: true,
+        }))
+        // Merge: add new servers not already in list
+        const existingNames = new Set(updated.mcpServers.map((s: any) => s.name))
+        for (const s of servers) {
+          if (!existingNames.has(s.name)) updated.mcpServers = [...updated.mcpServers, s]
+        }
+      }
       // Hooks from settings.json
       if (disk.settings?.hooks) {
         const hooks = disk.settings.hooks as Record<string, any>
@@ -254,6 +322,20 @@ export function useAppStore() {
       if (disk.settings?.advisorModel) {
         updated.advisorModel = disk.settings.advisorModel
       }
+      // Skills from .claude/skills/*/SKILL.md
+      if (Array.isArray(disk.skills) && disk.skills.length > 0) {
+        const diskSkills = disk.skills.map((s: any) => ({
+          id: `skill-${s.name}`,
+          name: s.name,
+          prompt: s.content || '',
+          model: '',
+          tools: [],
+        }))
+        const existingNames = new Set(updated.skills.map((s: any) => s.name))
+        for (const s of diskSkills) {
+          if (!existingNames.has(s.name)) updated.skills = [...updated.skills, s]
+        }
+      }
 
       setConfigs((prev) => {
         const next = { ...prev, [id]: updated }
@@ -263,6 +345,11 @@ export function useAppStore() {
     } catch {
       // Silently ignore read errors — use stored config as fallback
     }
+  }
+
+  const updateServerConfig = (config: ServerConfig) => {
+    setServerConfig(config)
+    saveToStorage(STORAGE_KEY_SERVER_CONFIG, config)
   }
 
   return {
@@ -277,5 +364,6 @@ export function useAppStore() {
     confirmThen, showToast,
     saveConfig, startAgent, runInit, updateConfig,
     handleProvidersChange, addProject, removeProject, openProject,
+    serverConfig, updateServerConfig,
   }
 }

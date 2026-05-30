@@ -284,6 +284,7 @@ fn read_skills_summary(project_path: &PathBuf) -> String {
 
 #[tauri::command]
 pub async fn ai_chat(req: AiChatRequest) -> Result<AiChatResponse, String> {
+    log::info!("ai_chat: model={}, messages={}", req.model, req.messages.len());
     let mut messages = req.messages;
 
     let lang_suffix = lang_instruction(&req.lang);
@@ -313,6 +314,7 @@ pub async fn ai_chat(req: AiChatRequest) -> Result<AiChatResponse, String> {
 
 #[tauri::command]
 pub async fn ai_analyze(req: AiAnalyzeRequest) -> Result<AiAnalyzeResponse, String> {
+    log::info!("ai_analyze: path={}, target={}", req.project_path, req.target);
     let project_path = PathBuf::from(&req.project_path);
     if !project_path.exists() {
         return Err(format!("Project path does not exist: {}", req.project_path));

@@ -7,6 +7,7 @@ use crate::types::{McpServerInput, ProjectConfigInput};
 
 #[tauri::command]
 pub fn write_project_config(config: ProjectConfigInput) -> Result<String, String> {
+    log::info!("write_project_config: path={}", config.project_path);
     let project_path = PathBuf::from(&config.project_path);
     let claude_dir = project_path.join(".claude");
 
@@ -208,6 +209,7 @@ fn write_global_settings(config: &ProjectConfigInput) -> Result<(), String> {
 
 #[tauri::command]
 pub fn read_project_config(project_path: String) -> Result<serde_json::Value, String> {
+    log::info!("read_project_config: path={}", project_path);
     let path = PathBuf::from(&project_path);
     let claude_dir = path.join(".claude");
     let mut result = serde_json::Map::new();
@@ -234,6 +236,46 @@ pub fn read_project_config(project_path: String) -> Result<serde_json::Value, St
     if mcp_path.exists() {
         let content = fs::read_to_string(&mcp_path).map_err(|e| format!("Read: {}", e))?;
         result.insert("mcpConfig".into(), serde_json::from_str(&content).unwrap_or(serde_json::Value::Null));
+    }
+
+    let claude_mcp_path = claude_dir.join("mcp.json");
+    if claude_mcp_path.exists() {
+        let content = fs::read_to_string(&claude_mcp_path).map_err(|e| format!("Read: {}", e))?;
+        // Merge into mcpConfig, .claude/mcp.json takes priority
+        let claude_mcp: serde_json::Value = serde_json::from_str(&content).unwrap_or(serde_json::Value::Null);
+        if let Some(existing) = result.get_mut("mcpConfig") {
+            if let (Some(ex_obj), Some(cm_obj)) = (existing.as_object_mut(), claude_mcp.as_object()) {
+                for (k, v) in cm_obj {
+                    ex_obj.insert(k.clone(), v.clone());
+                }
+            }
+        } else {
+            result.insert("mcpConfig".into(), claude_mcp);
+        }
+    }
+
+    // Read skills from .claude/skills/*/SKILL.md
+    let skills_dir = claude_dir.join("skills");
+    if skills_dir.exists() {
+        let mut skills_list = Vec::new();
+        if let Ok(entries) = fs::read_dir(&skills_dir) {
+            for entry in entries.flatten() {
+                let skill_path = entry.path().join("SKILL.md");
+                if skill_path.exists() {
+                    let content = fs::read_to_string(&skill_path).unwrap_or_default();
+                    let name = entry.path().file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    skills_list.push(serde_json::json!({
+                        "name": name,
+                        "content": content,
+                    }));
+                }
+            }
+        }
+        if !skills_list.is_empty() {
+            result.insert("skills".into(), serde_json::Value::Array(skills_list));
+        }
     }
 
     Ok(serde_json::Value::Object(result))

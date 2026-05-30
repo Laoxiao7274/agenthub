@@ -58,15 +58,55 @@ pub fn start_agent(
         other => return Err(format!("Unsupported runtime: {}", other)),
     };
 
-    let mut cmd = std::process::Command::new(cmd_name);
-    cmd.current_dir(&project_path);
-
+    // Build the claude command arguments
+    let mut args: Vec<String> = Vec::new();
     if !model.is_empty() {
-        cmd.arg("--model").arg(&model);
+        args.push("--model".into());
+        args.push(model.clone());
     }
     if !permission_mode.is_empty() {
-        cmd.arg("--permission-mode").arg(&permission_mode);
+        args.push("--permission-mode".into());
+        args.push(permission_mode.clone());
     }
+
+    let settings_path = PathBuf::from(&project_path)
+        .join(".claude")
+        .join("settings.json");
+    if settings_path.exists() {
+        args.push("--settings".into());
+        args.push(settings_path.to_string_lossy().to_string());
+    }
+
+    // Check both .mcp.json and .claude/mcp.json
+    let mcp_root = PathBuf::from(&project_path).join(".mcp.json");
+    let mcp_claude = PathBuf::from(&project_path).join(".claude").join("mcp.json");
+    let mcp_path = if mcp_claude.exists() { mcp_claude } else { mcp_root };
+    if mcp_path.exists() {
+        args.push("--mcp-config".into());
+        args.push(mcp_path.to_string_lossy().to_string());
+    }
+
+    let args_str = args.join(" ");
+    let claude_cmd = format!("{} {}", cmd_name, args_str);
+
+    // On Windows, use cmd /k to keep console open after command finishes
+    // This prevents the window from flashing and closing on errors
+    #[cfg(target_os = "windows")]
+    let mut cmd = {
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/k", &claude_cmd]);
+        c
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let mut cmd = {
+        let mut c = std::process::Command::new(cmd_name);
+        c.args(&args);
+        c
+    };
+
+    cmd.current_dir(&project_path);
+
     if !small_model.is_empty() {
         cmd.env("ANTHROPIC_SMALL_FAST_MODEL", &small_model);
     }
@@ -74,20 +114,6 @@ pub fn start_agent(
     // If we have API key, clear ANTHROPIC_AUTH_TOKEN to avoid auth conflict
     if !api_key.is_empty() {
         cmd.env_remove("ANTHROPIC_AUTH_TOKEN");
-    }
-
-    let settings_path = PathBuf::from(&project_path)
-        .join(".claude")
-        .join("settings.json");
-    if settings_path.exists() {
-        cmd.arg("--settings")
-            .arg(settings_path.to_string_lossy().as_ref());
-    }
-
-    let mcp_path = PathBuf::from(&project_path).join(".mcp.json");
-    if mcp_path.exists() {
-        cmd.arg("--mcp-config")
-            .arg(mcp_path.to_string_lossy().as_ref());
     }
 
     // On Windows, create a new console window so claude CLI is visible
@@ -107,6 +133,7 @@ pub fn start_agent(
         .map_err(|e| format!("Failed to start {}: {}", cmd_name, e))?;
 
     let pid = child.id();
+    log::info!("Agent started: runtime={}, pid={}, path={}", runtime, pid, project_path);
     // Store child in existing app state
     let state = app.state::<AgentChild>();
     let mut guard = state.0.lock().map_err(|e| format!("Lock: {}", e))?;
@@ -122,6 +149,7 @@ pub fn stop_agent(app: tauri::AppHandle) -> Result<String, String> {
     match *guard {
         Some(ref mut child) => {
             child.kill().map_err(|e| format!("Kill failed: {}", e))?;
+            log::info!("Agent stopped (killed)");
             *guard = None;
             Ok("Agent stopped".into())
         }

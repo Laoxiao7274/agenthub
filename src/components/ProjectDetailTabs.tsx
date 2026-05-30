@@ -1,17 +1,74 @@
-import { FileText, Shield, Webhook } from 'lucide-react'
+import { useState } from 'react'
+import { FileText, Shield, Webhook, Sparkles, Loader2 } from 'lucide-react'
 import { useI18n } from '../i18n'
-import type { ProjectConfig } from '../types'
+import type { ProjectConfig, Provider, Project } from '../types'
+import { tauri } from '../tauri'
 
-export function ClaudeMdSection({ config }: {
+export function ClaudeMdSection({
+  config,
+  onChange,
+  providers,
+  activeProject,
+  showToast,
+}: {
   config: ProjectConfig
   onChange: (c: ProjectConfig) => void
+  providers: Provider[]
+  activeProject: Project | null | undefined
+  showToast: (msg: string) => void
 }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  const [aiLoading, setAiLoading] = useState(false)
+
+  const provider = providers.find((p) => p.id === config.providerId)
+  const getApiConfig = () => {
+    if (!provider || !provider.apiKey || !provider.baseUrl || !provider.model) {
+      showToast(t('ai.noProvider'))
+      return null
+    }
+    return { base_url: provider.baseUrl, api_key: provider.apiKey, model: config.model || provider.model }
+  }
+
+  const handleAiAnalyze = async () => {
+    const apiConfig = getApiConfig()
+    if (!apiConfig || !activeProject) return
+    setAiLoading(true)
+    try {
+      const res = await tauri.aiChat({
+        ...apiConfig,
+        lang,
+        messages: [
+          { role: 'user', content: `Analyze this CLAUDE.md file in 3-5 concise sentences. What project rules, conventions, and key information does it define?\n\n${config.claudeMd || '(empty)'}` },
+        ],
+      })
+      onChange({ ...config, claudeMdSummary: res.reply })
+      showToast(t('ai.applied'))
+    } catch (e: any) {
+      showToast(`❌ ${e?.toString() || 'Failed'}`)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return (
     <div className="section">
       <div className="section-header">
         <div className="section-title"><FileText size={17} className="section-icon" /> {t('claudeMd.title')}</div>
+        <button
+          className="btn"
+          onClick={handleAiAnalyze}
+          disabled={aiLoading || !config.claudeMd}
+        >
+          {aiLoading ? <Loader2 size={12} className="spin" /> : <Sparkles size={12} />}
+          {t('ai.analyze')}
+        </button>
       </div>
+      {config.claudeMdSummary && (
+        <div className="ai-insight-card">
+          <div className="ai-insight-header"><Sparkles size={13} /> AI {t('ai.analyze')}</div>
+          <div className="ai-insight-body">{config.claudeMdSummary}</div>
+        </div>
+      )}
       <div className="section-subtitle">{t('claudeMd.subtitle')}</div>
       {config.claudeMd ? (
         <div className="skill-prompt-view">

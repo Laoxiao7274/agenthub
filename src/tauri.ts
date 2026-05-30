@@ -93,6 +93,125 @@ export interface AiUpdateRequest {
   lang?: string;
 }
 
+export interface WikiProject {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
+export interface WikiFile {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children: WikiFile[] | null;
+}
+
+export interface WikiSearchResult {
+  title: string;
+  path: string;
+  snippet: string;
+  score: number;
+  mode: string;
+}
+
+export interface WikiGraphNode {
+  id: string;
+  label: string;
+  node_type: string;
+}
+
+export interface WikiGraphEdge {
+  source: string;
+  target: string;
+  label: string;
+}
+
+export interface WikiGraph {
+  nodes: WikiGraphNode[];
+  edges: WikiGraphEdge[];
+}
+
+export interface AnythingLLMWorkspace {
+  id?: number;
+  name: string;
+  slug?: string;
+  description?: string;
+  createdAt?: string;
+  docCount?: number;
+}
+
+export interface AnythingLLMDocument {
+  name: string;
+  url?: string;
+  docAuthor?: string;
+  description?: string;
+  chunkSource?: string;
+  published?: string;
+}
+
+export interface AnythingLLMSearchResult {
+  id?: string;
+  text?: string;
+  score?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface AnythingLLMChatResponse {
+  textResponse?: string;
+  sources?: Record<string, any>[];
+}
+
+export interface QdrantCollectionInfo {
+  name: string;
+  vector_count: number;
+  dimension: number;
+  status: string;
+}
+
+export interface QdrantPoint {
+  id: string;
+  payload: Record<string, any>;
+  score: number | null;
+}
+
+export interface Mem0AddRequest {
+  content: string;
+  user_id: string;
+  agent_id?: string;
+}
+
+export interface ClaudeSession {
+  id: string;
+  firstMessage: string;
+  timestamp: string;
+  permissionMode: string;
+  sizeBytes: number;
+}
+
+export interface SessionMessage {
+  role: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface Mem0SearchRequest {
+  query: string;
+  user_id: string;
+  agent_id?: string;
+}
+
+export interface Mem0DeleteRequest {
+  memory_id: string;
+  user_id: string;
+}
+
+export interface Mem0Memory {
+  id: string;
+  memory: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const invoke = (cmd: string, args?: Record<string, any>) =>
   (window as any).__TAURI_INTERNALS__.invoke(cmd, args);
@@ -178,6 +297,30 @@ export const tauri = {
   aiChat: (req: AiChatRequest): Promise<{ reply: string }> =>
     invoke("ai_chat", { req }),
 
+  /** Import skill from a local ZIP file */
+  importSkillZip: (projectPath: string, zipPath: string): Promise<string> =>
+    invoke("import_skill_zip", { projectPath, zipPath }),
+
+  /** Import skill from skillhub by slug */
+  importSkillSlug: (projectPath: string, slug: string): Promise<string> =>
+    invoke("import_skill_slug", { projectPath, slug }),
+
+  /** Read Claude Code memory data (CLAUDE.md, skills, settings) */
+  readClaudeMemory: (projectPath: string): Promise<Record<string, any>> =>
+    invoke("read_claude_memory", { projectPath }),
+
+  /** List Claude Code sessions for a project */
+  listClaudeSessions: (projectPath: string): Promise<ClaudeSession[]> =>
+    invoke("list_claude_sessions", { projectPath }),
+
+  /** Resume a Claude Code session */
+  resumeClaudeSession: (projectPath: string, sessionId: string, model: string, apiKey: string): Promise<number> =>
+    invoke("resume_claude_session", { projectPath, sessionId, model, apiKey }),
+
+  /** Read full session content (messages) from a JSONL session file */
+  readClaudeSession: (projectPath: string, sessionId: string): Promise<SessionMessage[]> =>
+    invoke("read_claude_session", { projectPath, sessionId }),
+
   /** AI analyze project (generate CLAUDE.md / skills summary / overview) */
   aiAnalyze: (req: AiAnalyzeRequest): Promise<{ result: string; target: string }> =>
     invoke("ai_analyze", { req }),
@@ -189,4 +332,122 @@ export const tauri = {
   /** AI apply (write AI-generated content to disk after user confirms) */
   aiApply: (projectPath: string, target: string, content: string): Promise<string> =>
     invoke("ai_apply", { projectPath, target, content }),
+
+  /** Check if Mem0 CLI is installed */
+  checkMem0Installed: (): Promise<boolean> =>
+    invoke("check_mem0_installed"),
+
+  /** Get Mem0 CLI version */
+  getMem0Version: (): Promise<string> =>
+    invoke("get_mem0_version"),
+
+  /** Install Mem0 CLI via npm */
+  installMem0: (): Promise<string> =>
+    invoke("install_mem0"),
+
+  /** Uninstall Mem0 CLI via npm */
+  uninstallMem0: (): Promise<string> =>
+    invoke("uninstall_mem0"),
+
+  /** Add a memory via Mem0 */
+  mem0Add: (req: Mem0AddRequest): Promise<string> =>
+    invoke("mem0_add", { req }),
+
+  /** Search memories via Mem0 */
+  mem0Search: (req: Mem0SearchRequest): Promise<Mem0Memory[]> =>
+    invoke("mem0_search", { req }),
+
+  /** Delete a memory via Mem0 */
+  mem0Delete: (req: Mem0DeleteRequest): Promise<string> =>
+    invoke("mem0_delete", { req }),
+
+  /** Get all memories via Mem0 */
+  mem0GetAll: (userId: string, agentId?: string): Promise<Mem0Memory[]> =>
+    invoke("mem0_get_all", { userId, agentId }),
+
+  /** Read recent log lines from the log file */
+  getLogs: (lines?: number): Promise<string> =>
+    invoke("get_logs", { lines }),
+
+  /** Clear the log file */
+  clearLogs: (): Promise<string> =>
+    invoke("clear_logs"),
+
+  /** Send a frontend log entry to the Rust logger */
+  frontendLog: (level: string, message: string): Promise<void> =>
+    invoke("frontend_log", { level, message }),
+
+  /** Open the log directory in file explorer */
+  openLogDir: (): Promise<string> =>
+    invoke("open_log_dir"),
+
+  // ===== Qdrant REST API =====
+
+  /** Check Qdrant server health */
+  qdrantHealth: (url: string, apiKey: string): Promise<string> =>
+    invoke("qdrant_health", { url, apiKey }),
+
+  /** List all Qdrant collections */
+  qdrantListCollections: (url: string, apiKey: string): Promise<string[]> =>
+    invoke("qdrant_list_collections", { url, apiKey }),
+
+  /** Get details of a Qdrant collection */
+  qdrantGetCollection: (url: string, apiKey: string, name: string): Promise<QdrantCollectionInfo> =>
+    invoke("qdrant_get_collection", { url, apiKey, name }),
+
+  /** Scroll (browse) points in a Qdrant collection */
+  qdrantScrollPoints: (url: string, apiKey: string, collection: string, limit?: number, offset?: string): Promise<QdrantPoint[]> =>
+    invoke("qdrant_scroll_points", { url, apiKey, collection, limit, offset }),
+
+  /** Delete points from a Qdrant collection */
+  qdrantDeletePoints: (url: string, apiKey: string, collection: string, ids: string[]): Promise<string> =>
+    invoke("qdrant_delete_points", { url, apiKey, collection, ids }),
+
+  // ===== agent-mem0 install =====
+
+  /** Install agent-mem0 MCP config + skill into a project */
+  installAgentMem0: (projectPath: string, projectName: string): Promise<string> =>
+    invoke("install_agent_mem0", { projectPath, projectName }),
+
+  /** Ensure a project link (junction) exists for paths with non-ASCII characters */
+  ensureProjectLink: (displayPath: string): Promise<string> =>
+    invoke("ensure_project_link", { displayPath }),
+
+  // ===== AnythingLLM API =====
+
+  /** Check AnythingLLM API health */
+  anythingLLMHealth: (url: string, apiKey: string): Promise<string> =>
+    invoke("anything_llm_health", { url, apiKey }),
+
+  /** List all AnythingLLM workspaces */
+  anythingLLMListWorkspaces: (url: string, apiKey: string): Promise<AnythingLLMWorkspace[]> =>
+    invoke("anything_llm_list_workspaces", { url, apiKey }),
+
+  /** Create a new AnythingLLM workspace */
+  anythingLLMCreateWorkspace: (url: string, apiKey: string, name: string): Promise<AnythingLLMWorkspace> =>
+    invoke("anything_llm_create_workspace", { url, apiKey, name }),
+
+  /** Delete an AnythingLLM workspace */
+  anythingLLMDeleteWorkspace: (url: string, apiKey: string, slug: string): Promise<string> =>
+    invoke("anything_llm_delete_workspace", { url, apiKey, slug }),
+
+  /** List documents in an AnythingLLM workspace */
+  anythingLLMListDocuments: (url: string, apiKey: string, slug: string): Promise<AnythingLLMDocument[]> =>
+    invoke("anything_llm_list_documents", { url, apiKey, slug }),
+
+  /** Search documents in AnythingLLM */
+  anythingLLMSearch: (url: string, apiKey: string, query: string, workspace?: string): Promise<AnythingLLMSearchResult[]> =>
+    invoke("anything_llm_search", { url, apiKey, query, workspace }),
+
+  /** Chat with an AnythingLLM workspace */
+  anythingLLMChat: (url: string, apiKey: string, slug: string, message: string): Promise<AnythingLLMChatResponse> =>
+    invoke("anything_llm_chat", { url, apiKey, slug, message }),
+
+  /** Upload a document to AnythingLLM */
+  anythingLLMUploadDocument: (url: string, apiKey: string, filePath: string): Promise<any> =>
+    invoke("anything_llm_upload_document", { url, apiKey, filePath }),
+
+  /** Add documents to an AnythingLLM workspace */
+  anythingLLMAddToWorkspace: (url: string, apiKey: string, slug: string, docPaths: string[]): Promise<string> =>
+    invoke("anything_llm_add_to_workspace", { url, apiKey, slug, docPaths }),
 };

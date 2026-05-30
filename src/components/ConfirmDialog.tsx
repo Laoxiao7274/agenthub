@@ -23,7 +23,7 @@ export function ConfirmDialog({
     onCancel()
   }
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360 }}>
         <div className="modal-header">
           <div className="modal-title"><AlertTriangle size={17} style={{ color: 'var(--danger, #ef4444)' }} /> {t('confirm.title')}</div>
